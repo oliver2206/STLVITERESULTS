@@ -5,6 +5,7 @@ import Checker from "./Checker";
 import Analyzer from "./Analyzer";
 import Gallery from "./Gallery";
 
+// 🎱 CREATE BALLS
 const createBalls = () => {
   const colors = {
     B: "#5DADE2",
@@ -49,7 +50,7 @@ export default function App() {
     setBalls(createBalls());
   }, []);
 
-  // 🎱 BOUNCING ANIMATION
+  // 🎯 BOUNCING ANIMATION
   useEffect(() => {
     let animation;
 
@@ -85,7 +86,7 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      {/* 🎱 BALLS */}
+      {/* 🎱 BOUNCING BALLS */}
       {balls.map((b, i) => (
         <div
           key={i}
@@ -100,12 +101,14 @@ export default function App() {
         </div>
       ))}
 
-      {/* 🍀 LEAF (NOW ABOVE TITLE) */}
-      <div style={styles.lucky}>🍀</div>
-
-      {/* MENU */}
+      {/* 🎯 MENU */}
       <div style={styles.menu}>
-        <h1 style={styles.title}>BINGO FORTUNE</h1>
+        
+        {/* 🍀 TITLE + LEAF (FIXED POSITION) */}
+        <div style={styles.titleWrapper}>
+          <div style={styles.lucky}>🍀</div>
+          <h1 style={styles.title}>BINGO FORTUNE</h1>
+        </div>
 
         <button style={styles.button} onClick={() => setPage("generate")}>
           GENERATE
@@ -127,6 +130,7 @@ export default function App() {
   );
 }
 
+// 🎨 STYLES
 const styles = {
   container: {
     position: "fixed",
@@ -148,24 +152,6 @@ const styles = {
     boxShadow: "0 5px 15px rgba(0,0,0,0.4)",
   },
 
-  // 🍀 FIXED POSITION + FRONT LAYER
-  lucky: {
-    position: "absolute",
-    top: "38%", // 🔥 PERFECT OVER TITLE
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    fontSize: "40px",
-    background: "black",
-    width: "70px",
-    height: "70px",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10, // 🔥 ABOVE EVERYTHING
-    animation: "pulse 1.5s infinite ease-in-out",
-  },
-
   menu: {
     position: "absolute",
     top: "50%",
@@ -176,6 +162,29 @@ const styles = {
     gap: "15px",
     alignItems: "center",
     zIndex: 5,
+  },
+
+  // 🍀 + TITLE WRAPPER
+  titleWrapper: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  },
+
+  // 🍀 NOW PERFECTLY ABOVE TEXT
+  lucky: {
+    position: "absolute",
+    top: "-40px",
+    fontSize: "35px",
+    background: "black",
+    width: "60px",
+    height: "60px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    animation: "pulse 1.5s infinite ease-in-out",
   },
 
   // ✨ GOLD TITLE
