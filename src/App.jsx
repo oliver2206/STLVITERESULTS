@@ -44,7 +44,6 @@ function makeBall(id, W, H, isSpecial = false) {
     spin: rnd(-3, 3),
     angle: rnd(0, 360),
     mass: radius * 0.8,
-    trail: [{ x: 0, y: 0 }],
   };
 }
 
@@ -59,7 +58,7 @@ function useBalls(count) {
   useEffect(() => {
     const { W, H } = dimRef.current;
     const initialBalls = Array.from({ length: count }, (_, i) => 
-      makeBall(i, W, H, i === 0) // First ball slightly larger
+      makeBall(i, W, H, i === 0)
     );
     ballsRef.current = initialBalls;
     setTick(t => t + 1);
@@ -68,7 +67,6 @@ function useBalls(count) {
   useEffect(() => {
     const onResize = () => {
       const newDim = { W: window.innerWidth, H: window.innerHeight };
-      // Reposition balls when window resizes
       ballsRef.current = ballsRef.current.map(b => ({
         ...b,
         x: Math.min(Math.max(b.x, b.radius), newDim.W - b.radius),
@@ -141,10 +139,7 @@ function useBalls(count) {
 
       // Update positions and handle wall collisions
       balls = balls.map(b => {
-        let { x, y, vx, vy, radius, spin, angle, mass } = b;
-        
-        // Apply gravity (optional)
-        // vy += 0.05;
+        let { x, y, vx, vy, radius, spin, angle } = b;
         
         // Air resistance
         vx *= 0.998;
@@ -174,7 +169,7 @@ function useBalls(count) {
         
         angle += spin;
         
-        return { ...b, x, y, vx, vy, angle, mass };
+        return { ...b, x, y, vx, vy, angle };
       });
       
       // Handle ball-to-ball collisions
@@ -383,7 +378,7 @@ export default function BingoFortune() {
     <div style={{
       width: "100vw",
       height: "100vh",
-      background: "linear-gradient(148deg, #5520cc 0%, #1a6cf4 42%, #22a8e6 100%)",
+      background: "linear-gradient(148deg, #0a2f6c 0%, #1a4c8c 42%, #2a6cac 100%)",
       overflow: "hidden",
       position: "relative",
       cursor: "default",
