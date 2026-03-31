@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import Generate from "./Generate";
+import Pattern  from "./Pattern";
+import Checker  from "./Checker";
+import Analyzer from "./Analyzer";
+import Gallery  from "./Gallery";
 
 /* ─── Ball color palette ─────────────────────────────────────── */
 const BALL_COLORS = {
@@ -99,7 +104,6 @@ function Ball({ b }) {
       display: "flex", alignItems: "center", justifyContent: "center",
       userSelect: "none",
     }}>
-      {/* white band */}
       <div style={{
         position: "absolute",
         width: "68%", height: "30%",
@@ -117,7 +121,6 @@ function Ball({ b }) {
           letterSpacing: "-0.5px",
         }}>{number}</span>
       </div>
-      {/* letter */}
       <span style={{
         position: "absolute", top: "11%",
         fontSize: radius * 0.34,
@@ -130,26 +133,30 @@ function Ball({ b }) {
   );
 }
 
-/* ─── Menu data ──────────────────────────────────────────────── */
+/* ─── Menu config ────────────────────────────────────────────── */
 const MENU = ["GENERATE", "PATTERN", "CHECKER", "ANALYZER", "GALLERY"];
-const DESCRIPTIONS = {
-  GENERATE: "🎲 Generate a fresh Bingo card with random numbers across all columns!",
-  PATTERN:  "🔲 Choose a winning pattern: Line, Diagonal, Blackout, L-Shape & more!",
-  CHECKER:  "✅ Mark your called numbers and auto-check if you've hit Bingo!",
-  ANALYZER: "📊 Analyze your card's probability and hot/cold number statistics.",
-  GALLERY:  "🖼️ Browse and save your favourite Bingo card designs and patterns.",
+
+/* Map each menu key to its panel component */
+const PANELS = {
+  GENERATE: Generate,
+  PATTERN:  Pattern,
+  CHECKER:  Checker,
+  ANALYZER: Analyzer,
+  GALLERY:  Gallery,
 };
 
 /* ─── App ────────────────────────────────────────────────────── */
 export default function BingoFortune() {
   const balls = useBalls(32);
-  const [active, setActive] = useState(null);
-  const [glow, setGlow]     = useState(false);
+  const [openPanel, setOpenPanel] = useState(null);
+  const [glow, setGlow] = useState(false);
 
   const cloverClick = () => {
     setGlow(true);
     setTimeout(() => setGlow(false), 700);
   };
+
+  const ActivePanel = openPanel ? PANELS[openPanel] : null;
 
   return (
     <>
@@ -161,18 +168,12 @@ export default function BingoFortune() {
           width: 100%; height: 100%;
           overflow: hidden;
         }
-
         #root {
           width: 100vw; height: 100vh;
           overflow: hidden;
         }
-
         *, *::before, *::after { box-sizing: border-box; }
 
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
         @keyframes cloverPop {
           0%   { transform: scale(1); }
           40%  { transform: scale(1.18); }
@@ -236,70 +237,44 @@ export default function BingoFortune() {
             textAlign: "center",
           }}>BINGO FORTUNE</h1>
 
-          {/* Buttons */}
+          {/* Buttons — each opens its own panel */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
-            {MENU.map(item => {
-              const on = active === item;
-              return (
-                <button key={item}
-                  onClick={() => setActive(on ? null : item)}
-                  style={{
-                    width: "100%", padding: "14px 0",
-                    borderRadius: 12,
-                    border: on ? "2px solid rgba(90,215,105,0.65)" : "2px solid rgba(255,255,255,0.07)",
-                    background: on
-                      ? "linear-gradient(95deg, #33a845 0%, #1878d0 100%)"
-                      : "rgba(12,12,22,0.78)",
-                    color: "#fff",
-                    fontSize: "1.08rem", fontWeight: 800,
-                    fontFamily: "'Fredoka One', cursive",
-                    letterSpacing: "0.22em",
-                    cursor: "pointer",
-                    backdropFilter: "blur(14px)",
-                    WebkitBackdropFilter: "blur(14px)",
-                    boxShadow: on
-                      ? "0 0 22px rgba(55,190,75,0.32), 0 6px 18px rgba(0,0,0,0.35)"
-                      : "0 4px 18px rgba(0,0,0,0.32)",
-                    transition: "all 0.18s cubic-bezier(.3,1.5,.5,1)",
-                    transform: on ? "scale(1.04)" : "scale(1)",
-                  }}
-                  onMouseEnter={e => {
-                    if (!on) {
-                      e.currentTarget.style.background = "rgba(40,40,60,0.92)";
-                      e.currentTarget.style.transform  = "scale(1.025)";
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!on) {
-                      e.currentTarget.style.background = "rgba(12,12,22,0.78)";
-                      e.currentTarget.style.transform  = "scale(1)";
-                    }
-                  }}
-                >{item}</button>
-              );
-            })}
+            {MENU.map(item => (
+              <button key={item}
+                onClick={() => setOpenPanel(item)}
+                style={{
+                  width: "100%", padding: "14px 0",
+                  borderRadius: 12,
+                  border: "2px solid rgba(255,255,255,0.07)",
+                  background: "rgba(12,12,22,0.78)",
+                  color: "#fff",
+                  fontSize: "1.08rem", fontWeight: 800,
+                  fontFamily: "'Fredoka One', cursive",
+                  letterSpacing: "0.22em",
+                  cursor: "pointer",
+                  backdropFilter: "blur(14px)",
+                  WebkitBackdropFilter: "blur(14px)",
+                  boxShadow: "0 4px 18px rgba(0,0,0,0.32)",
+                  transition: "all 0.18s cubic-bezier(.3,1.5,.5,1)",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "rgba(40,40,60,0.92)";
+                  e.currentTarget.style.transform  = "scale(1.025)";
+                  e.currentTarget.style.border     = "2px solid rgba(90,215,105,0.4)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "rgba(12,12,22,0.78)";
+                  e.currentTarget.style.transform  = "scale(1)";
+                  e.currentTarget.style.border     = "2px solid rgba(255,255,255,0.07)";
+                }}
+              >{item}</button>
+            ))}
           </div>
-
-          {/* Description */}
-          {active && (
-            <div style={{
-              marginTop: 13, width: "100%",
-              padding: "15px 20px", borderRadius: 13,
-              background: "rgba(6,6,16,0.86)",
-              backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              color: "rgba(255,255,255,0.92)",
-              fontSize: "0.95rem",
-              fontFamily: "'Nunito', sans-serif", fontWeight: 700,
-              lineHeight: 1.65, textAlign: "center",
-              boxShadow: "0 8px 36px rgba(0,0,0,0.45)",
-              animation: "fadeUp 0.22s ease",
-            }}>
-              {DESCRIPTIONS[active]}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* ── Active panel overlay ── */}
+      {ActivePanel && <ActivePanel onClose={() => setOpenPanel(null)} />}
     </>
   );
 }
