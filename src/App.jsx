@@ -24,9 +24,11 @@ function makeBall(id, W, H) {
   const letters = Object.keys(LETTER_RANGES);
   const letter = letters[Math.floor(Math.random() * letters.length)];
   const [lo, hi] = LETTER_RANGES[letter];
+
   const radius = rnd(30, 52);
   let vx = rnd(-3, 3); if (Math.abs(vx) < 0.8) vx = 1.2;
   let vy = rnd(-3, 3); if (Math.abs(vy) < 0.8) vy = 1.2;
+
   return {
     id, letter,
     number: Math.floor(rnd(lo, hi + 1)),
@@ -63,19 +65,26 @@ function useBalls(count) {
   useEffect(() => {
     const loop = () => {
       const { W, H } = dimRef.current;
+
       ballsRef.current = ballsRef.current.map(b => {
         let { x, y, vx, vy, radius, spin, angle } = b;
+
         x += vx; y += vy;
+
         if (x - radius < 0)  { x = radius;    vx =  Math.abs(vx); }
         if (x + radius > W)  { x = W - radius; vx = -Math.abs(vx); }
         if (y - radius < 0)  { y = radius;    vy =  Math.abs(vy); }
         if (y + radius > H)  { y = H - radius; vy = -Math.abs(vy); }
+
         angle += spin;
+
         return { ...b, x, y, vx, vy, angle };
       });
+
       setTick(t => t + 1);
       rafRef.current = requestAnimationFrame(loop);
     };
+
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
@@ -92,189 +101,112 @@ function Ball({ b }) {
   return (
     <div style={{
       position: "absolute",
-      width: d, height: d,
-      left: x - radius, top: y - radius,
+      width: d,
+      height: d,
+      left: x - radius,
+      top: y - radius,
       borderRadius: "50%",
       background: `radial-gradient(circle at 38% 32%, rgba(255,255,255,0.55) 0%, ${bg} 48%, ${dark} 100%)`,
       boxShadow: `0 8px 24px rgba(0,0,0,0.38),
                   inset 0 -5px 10px rgba(0,0,0,0.22),
                   inset 0  4px  8px rgba(255,255,255,0.38)`,
       transform: `rotate(${angle}deg)`,
-      willChange: "transform",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      userSelect: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
     }}>
       <div style={{
         position: "absolute",
-        width: "68%", height: "30%",
-        background: "rgba(255,255,255,0.93)",
+        width: "68%",
+        height: "30%",
+        background: "#fff",
         borderRadius: 5,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}>
         <span style={{
-          fontSize: radius * 0.60,
+          fontSize: radius * 0.6,
           fontWeight: 900,
           color: dark,
-          fontFamily: "'Fredoka One', cursive",
-          lineHeight: 1,
-          letterSpacing: "-0.5px",
         }}>{number}</span>
       </div>
+
       <span style={{
-        position: "absolute", top: "11%",
+        position: "absolute",
+        top: "11%",
         fontSize: radius * 0.34,
         fontWeight: 900,
-        color: "rgba(255,255,255,0.95)",
-        fontFamily: "'Fredoka One', cursive",
-        textShadow: `0 1px 4px ${dark}`,
+        color: "#fff",
       }}>{letter}</span>
     </div>
   );
 }
 
-/* ─── Menu config ────────────────────────────────────────────── */
+/* ─── Menu + Panels ─────────────────────────────────────────── */
 const MENU = ["GENERATE", "PATTERN", "CHECKER", "ANALYZER", "GALLERY"];
 
-/* Map each menu key to its panel component */
 const PANELS = {
   GENERATE: Generate,
-  PATTERN:  Pattern,
-  CHECKER:  Checker,
+  PATTERN: Pattern,
+  CHECKER: Checker,
   ANALYZER: Analyzer,
-  GALLERY:  Gallery,
+  GALLERY: Gallery,
 };
 
-/* ─── App ────────────────────────────────────────────────────── */
+/* ─── App ───────────────────────────────────────────────────── */
 export default function BingoFortune() {
   const balls = useBalls(32);
   const [openPanel, setOpenPanel] = useState(null);
-  const [glow, setGlow] = useState(false);
-
-  const cloverClick = () => {
-    setGlow(true);
-    setTimeout(() => setGlow(false), 700);
-  };
 
   const ActivePanel = openPanel ? PANELS[openPanel] : null;
 
+  // ✅ FULL PAGE SWITCH (NO MODAL)
+  if (ActivePanel) {
+    return <ActivePanel onClose={() => setOpenPanel(null)} />;
+  }
+
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap');
+    <div style={{
+      width: "100vw",
+      height: "100vh",
+      background: "linear-gradient(148deg, #5520cc 0%, #1a6cf4 42%, #22a8e6 100%)",
+      overflow: "hidden",
+      position: "relative",
+    }}>
 
-        html, body {
-          margin: 0; padding: 0;
-          width: 100%; height: 100%;
-          overflow: hidden;
-        }
-        #root {
-          width: 100vw; height: 100vh;
-          overflow: hidden;
-        }
-        *, *::before, *::after { box-sizing: border-box; }
+      {/* Balls */}
+      {balls.map(b => <Ball key={b.id} b={b} />)}
 
-        @keyframes cloverPop {
-          0%   { transform: scale(1); }
-          40%  { transform: scale(1.18); }
-          100% { transform: scale(1); }
-        }
-      `}</style>
-
-      {/* ── Full-screen blue stage ── */}
+      {/* Center Menu */}
       <div style={{
-        position: "fixed",
-        top: 0, left: 0,
-        width: "100vw", height: "100vh",
-        background: "linear-gradient(148deg, #5520cc 0%, #1a6cf4 42%, #22a8e6 100%)",
-        overflow: "hidden",
-        fontFamily: "'Fredoka One', cursive",
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        width: 260,
       }}>
-
-        {/* Soft radial shimmer */}
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 80% 55% at 50% 36%, rgba(255,255,255,0.10) 0%, transparent 68%)",
-        }}/>
-
-        {/* ── Bouncing balls ── */}
-        {balls.map(b => <Ball key={b.id} b={b} />)}
-
-        {/* ── Centre HUD ── */}
-        <div style={{
-          position: "absolute",
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
-          display: "flex", flexDirection: "column", alignItems: "center",
-          zIndex: 20,
-          width: "min(350px, 86vw)",
-        }}>
-
-          {/* Clover button */}
-          <div onClick={cloverClick} style={{
-            width: 72, height: 72, borderRadius: "50%",
-            background: "#0e0e0e",
-            border: "3px solid #1c1c1c",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 34, cursor: "pointer",
-            marginBottom: 8,
-            boxShadow: glow
-              ? "0 0 0 12px rgba(90,210,100,0.38), 0 0 55px rgba(70,200,80,0.55), 0 4px 22px rgba(0,0,0,0.5)"
-              : "0 4px 28px rgba(0,0,0,0.55)",
-            transition: "box-shadow 0.25s",
-            animation: glow ? "cloverPop 0.4s ease" : "none",
-            userSelect: "none",
-          }}>🍀</div>
-
-          {/* Title */}
-          <h1 style={{
-            fontSize: "clamp(1.85rem, 5.5vw, 3.2rem)",
-            fontWeight: 900,
-            color: "#fff",
-            letterSpacing: "0.18em",
-            textShadow: "0 3px 20px rgba(0,0,0,0.45), 0 2px 0 rgba(0,0,0,0.3)",
-            marginBottom: 20,
-            textAlign: "center",
-          }}>BINGO FORTUNE</h1>
-
-          {/* Buttons — each opens its own panel */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
-            {MENU.map(item => (
-              <button key={item}
-                onClick={() => setOpenPanel(item)}
-                style={{
-                  width: "100%", padding: "14px 0",
-                  borderRadius: 12,
-                  border: "2px solid rgba(255,255,255,0.07)",
-                  background: "rgba(12,12,22,0.78)",
-                  color: "#fff",
-                  fontSize: "1.08rem", fontWeight: 800,
-                  fontFamily: "'Fredoka One', cursive",
-                  letterSpacing: "0.22em",
-                  cursor: "pointer",
-                  backdropFilter: "blur(14px)",
-                  WebkitBackdropFilter: "blur(14px)",
-                  boxShadow: "0 4px 18px rgba(0,0,0,0.32)",
-                  transition: "all 0.18s cubic-bezier(.3,1.5,.5,1)",
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = "rgba(40,40,60,0.92)";
-                  e.currentTarget.style.transform  = "scale(1.025)";
-                  e.currentTarget.style.border     = "2px solid rgba(90,215,105,0.4)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = "rgba(12,12,22,0.78)";
-                  e.currentTarget.style.transform  = "scale(1)";
-                  e.currentTarget.style.border     = "2px solid rgba(255,255,255,0.07)";
-                }}
-              >{item}</button>
-            ))}
-          </div>
-        </div>
+        {MENU.map(item => (
+          <button
+            key={item}
+            onClick={() => setOpenPanel(item)}
+            style={{
+              padding: 14,
+              borderRadius: 10,
+              border: "none",
+              background: "#111",
+              color: "#fff",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            {item}
+          </button>
+        ))}
       </div>
-
-      {/* ── Active panel overlay ── */}
-      {ActivePanel && <ActivePanel onClose={() => setOpenPanel(null)} />}
-    </>
+    </div>
   );
 }
