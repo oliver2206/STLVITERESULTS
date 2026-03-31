@@ -49,7 +49,7 @@ export default function App() {
     setBalls(createBalls());
   }, []);
 
-  // 🎯 BOUNCING ANIMATION
+  // 🎱 BOUNCING ANIMATION
   useEffect(() => {
     let animation;
 
@@ -62,7 +62,6 @@ export default function App() {
           x += dx;
           y += dy;
 
-          // bounce walls
           if (x <= 0 || x >= window.innerWidth - size) dx *= -1;
           if (y <= 0 || y >= window.innerHeight - size) dy *= -1;
 
@@ -86,7 +85,7 @@ export default function App() {
 
   return (
     <div style={styles.container}>
-      {/* 🎱 BOUNCING BALLS */}
+      {/* 🎱 BALLS */}
       {balls.map((b, i) => (
         <div
           key={i}
@@ -101,7 +100,7 @@ export default function App() {
         </div>
       ))}
 
-      {/* 🍀 LUCKY LEAF */}
+      {/* 🍀 LEAF (NOW ABOVE TITLE) */}
       <div style={styles.lucky}>🍀</div>
 
       {/* MENU */}
@@ -149,9 +148,10 @@ const styles = {
     boxShadow: "0 5px 15px rgba(0,0,0,0.4)",
   },
 
+  // 🍀 FIXED POSITION + FRONT LAYER
   lucky: {
     position: "absolute",
-    top: "35%",
+    top: "38%", // 🔥 PERFECT OVER TITLE
     left: "50%",
     transform: "translate(-50%, -50%)",
     fontSize: "40px",
@@ -162,7 +162,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1,
+    zIndex: 10, // 🔥 ABOVE EVERYTHING
     animation: "pulse 1.5s infinite ease-in-out",
   },
 
@@ -175,14 +175,28 @@ const styles = {
     flexDirection: "column",
     gap: "15px",
     alignItems: "center",
-    zIndex: 2,
+    zIndex: 5,
   },
 
+  // ✨ GOLD TITLE
   title: {
-    color: "white",
-    letterSpacing: "3px",
+    fontSize: "60px",
+    fontWeight: "bold",
+    letterSpacing: "5px",
     marginBottom: "20px",
-    textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+
+    background: "linear-gradient(90deg, #FFD700, #FFF5B7, #FFD700)",
+    backgroundSize: "200% auto",
+    animation: "goldShine 3s linear infinite",
+
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+
+    textShadow: `
+      0 2px 5px rgba(0,0,0,0.5),
+      0 5px 15px rgba(255,215,0,0.6),
+      0 0 25px rgba(255,215,0,0.8)
+    `,
   },
 
   button: {
