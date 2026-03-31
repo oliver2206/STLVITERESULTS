@@ -1,26 +1,83 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Generate from "./Generate";
 import Pattern from "./Pattern";
 import Checker from "./Checker";
 import Analyzer from "./Analyzer";
 import Gallery from "./Gallery";
 
-const balls = [
-  { letter: "B", num: 4, color: "#5DADE2" },
-  { letter: "I", num: 27, color: "#FF6B6B" },
-  { letter: "N", num: 42, color: "#D5D8DC" },
-  { letter: "G", num: 46, color: "#58D68D" },
-  { letter: "O", num: 65, color: "#F5C469" },
-  { letter: "G", num: 50, color: "#58D68D" },
-  { letter: "I", num: 19, color: "#FF6B6B" },
-  { letter: "N", num: 45, color: "#D5D8DC" },
-  { letter: "O", num: 61, color: "#F5C469" },
-  { letter: "B", num: 12, color: "#5DADE2" },
-];
+const createBalls = () => {
+  const colors = {
+    B: "#5DADE2",
+    I: "#FF6B6B",
+    N: "#D5D8DC",
+    G: "#58D68D",
+    O: "#F5C469",
+  };
+
+  const letters = ["B", "I", "N", "G", "O"];
+
+  return Array.from({ length: 20 }).map(() => {
+    const letter = letters[Math.floor(Math.random() * 5)];
+    const ranges = {
+      B: [1, 15],
+      I: [16, 30],
+      N: [31, 45],
+      G: [46, 60],
+      O: [61, 75],
+    };
+
+    const [min, max] = ranges[letter];
+
+    return {
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      dx: (Math.random() - 0.5) * 4,
+      dy: (Math.random() - 0.5) * 4,
+      letter,
+      num: Math.floor(Math.random() * (max - min + 1)) + min,
+      color: colors[letter],
+    };
+  });
+};
 
 export default function App() {
   const [page, setPage] = useState("menu");
+  const [balls, setBalls] = useState([]);
+  const containerRef = useRef();
 
+  useEffect(() => {
+    setBalls(createBalls());
+  }, []);
+
+  // 🎯 BOUNCE ANIMATION
+  useEffect(() => {
+    let animation;
+
+    const update = () => {
+      setBalls((prev) =>
+        prev.map((b) => {
+          let { x, y, dx, dy } = b;
+          const size = 60;
+
+          x += dx;
+          y += dy;
+
+          // bounce walls
+          if (x <= 0 || x >= window.innerWidth - size) dx *= -1;
+          if (y <= 0 || y >= window.innerHeight - size) dy *= -1;
+
+          return { ...b, x, y, dx, dy };
+        })
+      );
+
+      animation = requestAnimationFrame(update);
+    };
+
+    update();
+    return () => cancelAnimationFrame(animation);
+  }, []);
+
+  // ROUTES
   if (page === "generate") return <Generate goBack={() => setPage("menu")} />;
   if (page === "pattern") return <Pattern goBack={() => setPage("menu")} />;
   if (page === "checker") return <Checker goBack={() => setPage("menu")} />;
@@ -28,24 +85,23 @@ export default function App() {
   if (page === "gallery") return <Gallery goBack={() => setPage("menu")} />;
 
   return (
-    <div style={styles.container}>
-      {/* Floating Balls */}
-      {balls.map((ball, i) => (
+    <div ref={containerRef} style={styles.container}>
+      {/* 🎱 BOUNCING BALLS */}
+      {balls.map((b, i) => (
         <div
           key={i}
           style={{
             ...styles.ball,
-            background: ball.color,
-            top: Math.random() * 90 + "%",
-            left: Math.random() * 90 + "%",
+            background: b.color,
+            transform: `translate(${b.x}px, ${b.y}px)`,
           }}
         >
-          <span style={{ fontSize: "12px" }}>{ball.letter}</span>
-          <strong>{ball.num}</strong>
+          <span style={{ fontSize: "12px" }}>{b.letter}</span>
+          <strong>{b.num}</strong>
         </div>
       ))}
 
-      {/* Center Content */}
+      {/* MENU */}
       <div style={styles.menu}>
         <h1 style={styles.title}>BINGO FORTUNE</h1>
 
@@ -71,12 +127,10 @@ export default function App() {
 
 const styles = {
   container: {
-    height: "100vh",
-    width: "100%",
+    position: "fixed", // 🔥 FULL SCREEN FIX
+    inset: 0,          // top:0 left:0 right:0 bottom:0
     overflow: "hidden",
-    position: "relative",
     background: "linear-gradient(135deg, #4c00ff, #00aaff)",
-    fontFamily: "Arial, sans-serif",
   },
 
   menu: {
@@ -88,6 +142,7 @@ const styles = {
     flexDirection: "column",
     gap: "15px",
     alignItems: "center",
+    zIndex: 2,
   },
 
   title: {
@@ -105,10 +160,7 @@ const styles = {
     background: "#333",
     color: "white",
     fontWeight: "bold",
-    fontSize: "16px",
     cursor: "pointer",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-    transition: "0.3s",
   },
 
   ball: {
