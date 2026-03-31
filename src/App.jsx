@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Generate from "./Generate";
 import Pattern from "./Pattern";
 import Checker from "./Checker";
@@ -18,6 +18,7 @@ const createBalls = () => {
 
   return Array.from({ length: 20 }).map(() => {
     const letter = letters[Math.floor(Math.random() * 5)];
+
     const ranges = {
       B: [1, 15],
       I: [16, 30],
@@ -31,8 +32,8 @@ const createBalls = () => {
     return {
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
-      dx: (Math.random() - 0.5) * 4,
-      dy: (Math.random() - 0.5) * 4,
+      dx: (Math.random() - 0.5) * 3,
+      dy: (Math.random() - 0.5) * 3,
       letter,
       num: Math.floor(Math.random() * (max - min + 1)) + min,
       color: colors[letter],
@@ -43,13 +44,12 @@ const createBalls = () => {
 export default function App() {
   const [page, setPage] = useState("menu");
   const [balls, setBalls] = useState([]);
-  const containerRef = useRef();
 
   useEffect(() => {
     setBalls(createBalls());
   }, []);
 
-  // 🎯 BOUNCE ANIMATION
+  // 🎯 BOUNCING ANIMATION
   useEffect(() => {
     let animation;
 
@@ -85,7 +85,7 @@ export default function App() {
   if (page === "gallery") return <Gallery goBack={() => setPage("menu")} />;
 
   return (
-    <div ref={containerRef} style={styles.container}>
+    <div style={styles.container}>
       {/* 🎱 BOUNCING BALLS */}
       {balls.map((b, i) => (
         <div
@@ -100,6 +100,9 @@ export default function App() {
           <strong>{b.num}</strong>
         </div>
       ))}
+
+      {/* 🍀 LUCKY LEAF */}
+      <div style={styles.lucky}>🍀</div>
 
       {/* MENU */}
       <div style={styles.menu}>
@@ -127,10 +130,40 @@ export default function App() {
 
 const styles = {
   container: {
-    position: "fixed", // 🔥 FULL SCREEN FIX
-    inset: 0,          // top:0 left:0 right:0 bottom:0
+    position: "fixed",
+    inset: 0,
     overflow: "hidden",
     background: "linear-gradient(135deg, #4c00ff, #00aaff)",
+  },
+
+  ball: {
+    position: "absolute",
+    width: "60px",
+    height: "60px",
+    borderRadius: "50%",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    fontWeight: "bold",
+    boxShadow: "0 5px 15px rgba(0,0,0,0.4)",
+  },
+
+  lucky: {
+    position: "absolute",
+    top: "35%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    fontSize: "40px",
+    background: "black",
+    width: "70px",
+    height: "70px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+    animation: "pulse 1.5s infinite ease-in-out",
   },
 
   menu: {
@@ -161,18 +194,6 @@ const styles = {
     color: "white",
     fontWeight: "bold",
     cursor: "pointer",
-  },
-
-  ball: {
-    position: "absolute",
-    width: "60px",
-    height: "60px",
-    borderRadius: "50%",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    fontWeight: "bold",
-    boxShadow: "0 5px 15px rgba(0,0,0,0.4)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
   },
 };
