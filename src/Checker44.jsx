@@ -696,11 +696,13 @@ function Pattern({ goBack }) {
     { id: 'IAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [1,2,4,5,7,8,10,11,12,14,15,16,17,18,20,,21,22,23,25,26,28,30,32,33,35,36,37,38,40,41,43,44,45,48,49,50,51,52,53,55,59,60,61,65,57,70,72,73,74,75], description: 'Numbers that spell BINGO' },
     { id: 'NITOY LUCKY 44 NUMBER', name: 'NITOY LUCKY 44 BALLS ', numbers: [ 1,2,4,5,6,7,8,9,12,13,14,15,16,17,8,19,20,21,23,24,25,26,27,29,30,31,32,30,31,32,33,34,35,36,37,38,39,44,45,48,50,51,52,53,54,56,58,59,61,62,63,64,65,67,68,69,70,71,72,73,75 ], description: 'Numbers that spell BINGO' },
     { id: 'BREE  LUCKY 44 NUMBER', name: ' BREE LUCKY 44 BALLS ', numbers: [1,3,4,6,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,24,25,26,28,30,31,35,36,37,40,41,42,43,45,46,48,49,50,51,54,55,56,57,58,59,60,61,62,63,64,66,67,68,69,71,72,74,75], description: 'Numbers that spell BINGO' },
-    { id: 'IAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
-    { id: 'IAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
-    { id: 'IAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
-    { id: 'IAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
-    { id: 'IAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
+    { id: 'VEN  LUCKY 44 NUMBER', name: ' VEN LUCKY 44 BALLS ', numbers: [2,3,4,6,7,8,9,10,12,13,15,16,17,18,19,20,21,24,27,31,32,33,34,35,38,39,40,41,42,44,45,47,49,50,51,52,53,54,55,56,58,59,61,62,63,65,66,69,70,71,73,75], description: 'Numbers that spell BINGO' },
+    { id: 'CRISS  LUCKY 44 NUMBER', name: 'CRISS LUCKY 44 BALLS ', numbers: [3,4,5,6,8,9,10,11,12,13,14,15,16,18,19,20,21,23,24,26 28,29,30,31,33,34,35,36,27,38,41,42,43,44,45,47,49,50,52,53,54,55,56,57,58,59,63,64,65,66,67,68,69,70,71,72,73], description: 'Numbers that spell BINGO' },
+    { id: 'ALAN  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
+    { id: 'CARLA  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
+    { id: 'BIMBY  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
+    { id: 'JUANNA  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
+    { id: 'JUANNA  LUCKY 44 NUMBER', name: ' IAN LUCKY 44 BALLS ', numbers: [], description: 'Numbers that spell BINGO' },
     
     ];
   }, []);
