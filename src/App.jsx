@@ -4,6 +4,7 @@ import Pattern from "./Pattern";
 import Checker from "./Checker";
 import Analyzer from "./Analyzer";
 import Gallery from "./Gallery";
+import Navbar from "./Navbar";
 
 const COLS = {
   B: { range: [1, 15],  color: "#5b9bd5", text: "#fff" },
@@ -183,11 +184,14 @@ export default function App() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [page]);
 
-  if (page === "Generate") return <Generate onBack={() => setPage(null)} />;
-  if (page === "Pattern")  return <Pattern  onBack={() => setPage(null)} />;
-  if (page === "Checker")  return <Checker  onBack={() => setPage(null)} />;
-  if (page === "Analyzer") return <Analyzer onBack={() => setPage(null)} />;
-  if (page === "Gallery")  return <Gallery  onBack={() => setPage(null)} />;
+  const goHome = () => setPage(null);
+  const goTo   = (p) => setPage(p);
+
+  if (page === "Generate") return <><Navbar activePage="Generate" onNavigate={goTo} onHome={goHome} /><Generate onBack={goHome} /></>;
+  if (page === "Pattern")  return <><Navbar activePage="Pattern"  onNavigate={goTo} onHome={goHome} /><Pattern  onBack={goHome} /></>;
+  if (page === "Checker")  return <><Navbar activePage="Checker"  onNavigate={goTo} onHome={goHome} /><Checker  onBack={goHome} /></>;
+  if (page === "Analyzer") return <><Navbar activePage="Analyzer" onNavigate={goTo} onHome={goHome} /><Analyzer onBack={goHome} /></>;
+  if (page === "Gallery")  return <><Navbar activePage="Gallery"  onNavigate={goTo} onHome={goHome} /><Gallery  onBack={goHome} /></>;
 
   return (
     <div
