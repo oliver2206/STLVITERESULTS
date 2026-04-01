@@ -1,160 +1,252 @@
 import { useState } from "react";
 
-const LETTER_RANGES = {
-  B: [1, 15], I: [16, 30], N: [31, 45], G: [46, 60], O: [61, 75],
-};
+const NAV_ITEMS = [
+  { name: "Generate", icon: "🎲", accent: "#4f9ef8" },
+  { name: "Pattern",  icon: "🔲", accent: "#a855f7" },
+  { name: "Checker",  icon: "✅", accent: "#22c55e" },
+  { name: "Analyzer", icon: "📊", accent: "#f97316" },
+  { name: "Gallery",  icon: "🖼️", accent: "#ec4899" },
+];
 
-const BALL_COLORS = {
-  B: { bg: "#4FC3F7", dark: "#01579B" },
-  I: { bg: "#EF5350", dark: "#7F0000" },
-  N: { bg: "#E0E0E0", dark: "#424242" },
-  G: { bg: "#66BB6A", dark: "#1B5E20" },
-  O: { bg: "#FFA726", dark: "#7f2e00" },
-};
-
-function generateCard() {
-  return Object.entries(LETTER_RANGES).map(([letter, [lo, hi]]) => {
-    const pool = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
-    const col = [];
-    while (col.length < 5) {
-      const idx = Math.floor(Math.random() * pool.length);
-      col.push(pool.splice(idx, 1)[0]);
-    }
-    return { letter, numbers: col };
-  });
-}
-
-export default function Generate({ onClose }) {
-  const [card, setCard] = useState(generateCard());
-  const [marked, setMarked] = useState(new Set(["FREE"]));
-  const [flash, setFlash] = useState(false);
-
-  const reroll = () => {
-    setFlash(true);
-    setTimeout(() => setFlash(false), 400);
-    setCard(generateCard());
-    setMarked(new Set(["FREE"]));
-  };
-
-  const toggle = (key) => {
-    setMarked(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  };
+export default function Navbar({ activePage, onNavigate, onHome }) {
+  const [hoveredItem, setHoveredItem] = useState(null);
 
   return (
     <>
       <style>{`
-        @keyframes cardFlash {
-          0%   { opacity: 0; transform: scale(0.93); }
-          100% { opacity: 1; transform: scale(1); }
+        .navbar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          padding: 0 28px;
+          height: 64px;
+          background: rgba(20, 20, 35, 0.88);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+          gap: 24px;
         }
-        .gen-cell {
-          width: 52px; height: 52px;
-          border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 1.1rem; font-weight: 900;
+
+        .navbar-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
           cursor: pointer;
-          transition: all 0.15s;
-          font-family: 'Fredoka One', cursive;
+          flex-shrink: 0;
+          transition: transform 0.18s ease;
           user-select: none;
-          border: 2px solid transparent;
         }
-        .gen-cell:hover { transform: scale(1.08); }
+        .navbar-brand:hover {
+          transform: scale(1.05);
+        }
+
+        .navbar-logo-ring {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: #0d0d1a;
+          border: 2px solid rgba(255,255,255,0.18);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 21px;
+          transition: border-color 0.18s, box-shadow 0.18s;
+          flex-shrink: 0;
+        }
+        .navbar-brand:hover .navbar-logo-ring {
+          border-color: #4caf50;
+          box-shadow: 0 0 14px rgba(76,175,80,0.6);
+        }
+
+        .navbar-brand:active {
+          transform: scale(0.97);
+        }
+
+        .navbar-title {
+          font-family: 'Arial Black', Arial, sans-serif;
+          font-size: 16px;
+          font-weight: 900;
+          color: #fff;
+          letter-spacing: 2px;
+          white-space: nowrap;
+          line-height: 1.2;
+          transition: color 0.18s;
+        }
+        .navbar-brand:hover .navbar-title {
+          color: #4caf50;
+        }
+
+        .navbar-home-hint {
+          font-size: 9px;
+          color: rgba(255,255,255,0.28);
+          letter-spacing: 1.5px;
+          font-family: Arial, sans-serif;
+          font-weight: 400;
+          margin-top: 2px;
+          transition: color 0.18s;
+        }
+        .navbar-brand:hover .navbar-home-hint {
+          color: rgba(76,175,80,0.7);
+        }
+
+        .navbar-divider {
+          width: 1px;
+          height: 32px;
+          background: rgba(255,255,255,0.1);
+          flex-shrink: 0;
+        }
+
+        .navbar-nav {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex: 1;
+        }
+
+        .nav-btn {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          font-family: 'Arial Black', Arial, sans-serif;
+          cursor: pointer;
+          border: 1.5px solid transparent;
+          background: transparent;
+          color: rgba(255,255,255,0.5);
+          transition: all 0.18s ease;
+          white-space: nowrap;
+          position: relative;
+        }
+        .nav-btn:active {
+          transform: scale(0.96) translateY(1px) !important;
+        }
+
+        .nav-btn-icon {
+          font-size: 15px;
+          line-height: 1;
+        }
+
+        .nav-active-bar {
+          position: absolute;
+          bottom: -2px;
+          left: 50%;
+          transform: translateX(-50%);
+          height: 2.5px;
+          border-radius: 2px;
+          width: 55%;
+        }
+
+        .navbar-right {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .navbar-badge {
+          padding: 5px 14px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          font-family: Arial, sans-serif;
+          background: rgba(76,175,80,0.15);
+          color: #4caf50;
+          border: 1px solid rgba(76,175,80,0.3);
+          white-space: nowrap;
+        }
       `}</style>
 
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 100,
-        background: "rgba(0,0,0,0.72)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        backdropFilter: "blur(6px)",
-      }}>
-        <div style={{
-          background: "linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)",
-          borderRadius: 22,
-          padding: "28px 24px",
-          width: "min(420px, 94vw)",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.07)",
-          animation: flash ? "cardFlash 0.35s ease" : "none",
-        }}>
+      <nav className="navbar">
 
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-            <div>
-              <div style={{ color: "#fff", fontSize: "1.5rem", fontWeight: 900, fontFamily: "'Fredoka One', cursive", letterSpacing: "0.12em" }}>
-                🎲 GENERATE
-              </div>
-              <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>
-                Click cells to mark · Tap reroll for a fresh card
-              </div>
-            </div>
-            <button onClick={onClose} style={{
-              background: "rgba(255,255,255,0.08)", border: "none",
-              color: "#fff", width: 34, height: 34, borderRadius: "50%",
-              cursor: "pointer", fontSize: "1rem",
-            }}>✕</button>
+        {/* ── LOGO — clicking goes back to Home ── */}
+        <div
+          className="navbar-brand"
+          onClick={onHome}
+          title="Go back to Home"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && onHome()}
+        >
+          <div className="navbar-logo-ring">🍀</div>
+          <div>
+            <div className="navbar-title">BINGO FORTUNE</div>
+            <div className="navbar-home-hint">↩ TAP TO GO HOME</div>
           </div>
-
-          {/* Column headers */}
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 8 }}>
-            {card.map(({ letter }) => (
-              <div key={letter} style={{
-                width: 52, height: 32, borderRadius: 8,
-                background: `linear-gradient(135deg, ${BALL_COLORS[letter].dark}, ${BALL_COLORS[letter].bg})`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#fff", fontWeight: 900, fontSize: "1.05rem",
-                fontFamily: "'Fredoka One', cursive",
-              }}>{letter}</div>
-            ))}
-          </div>
-
-          {/* Grid */}
-          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-            {card.map(({ letter, numbers }, ci) => (
-              <div key={letter} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {numbers.map((num, ri) => {
-                  const isFree = ci === 2 && ri === 2;
-                  const key = isFree ? "FREE" : `${letter}${num}`;
-                  const on = marked.has(key);
-                  return (
-                    <div key={key} className="gen-cell"
-                      onClick={() => toggle(key)}
-                      style={{
-                        background: on
-                          ? `linear-gradient(135deg, ${BALL_COLORS[letter].dark}, ${BALL_COLORS[letter].bg})`
-                          : "rgba(255,255,255,0.07)",
-                        color: on ? "#fff" : "rgba(255,255,255,0.8)",
-                        border: on ? `2px solid ${BALL_COLORS[letter].bg}` : "2px solid rgba(255,255,255,0.1)",
-                        boxShadow: on ? `0 0 14px ${BALL_COLORS[letter].bg}55` : "none",
-                      }}>
-                      {isFree ? "⭐" : num}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-
-          {/* Reroll */}
-          <button onClick={reroll} style={{
-            marginTop: 20, width: "100%",
-            padding: "13px 0",
-            borderRadius: 12,
-            background: "linear-gradient(95deg, #7c3aed, #2563eb)",
-            border: "none", color: "#fff",
-            fontSize: "1rem", fontWeight: 900,
-            fontFamily: "'Fredoka One', cursive", letterSpacing: "0.18em",
-            cursor: "pointer",
-            boxShadow: "0 4px 20px rgba(124,58,237,0.45)",
-            transition: "transform 0.15s",
-          }}
-            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.03)"}
-            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-          >🎲 REROLL CARD</button>
         </div>
-      </div>
+
+        <div className="navbar-divider" />
+
+        {/* ── NAV LINKS ── */}
+        <div className="navbar-nav">
+          {NAV_ITEMS.map(({ name, icon, accent }) => {
+            const isActive  = activePage === name;
+            const isHovered = hoveredItem === name;
+            return (
+              <button
+                key={name}
+                className="nav-btn"
+                onClick={() => onNavigate(name)}
+                onMouseEnter={() => setHoveredItem(name)}
+                onMouseLeave={() => setHoveredItem(null)}
+                style={{
+                  color:
+                    isActive || isHovered
+                      ? "#fff"
+                      : "rgba(255,255,255,0.5)",
+                  background:
+                    isActive
+                      ? `${accent}25`
+                      : isHovered
+                      ? `${accent}15`
+                      : "transparent",
+                  borderColor:
+                    isActive
+                      ? `${accent}60`
+                      : isHovered
+                      ? `${accent}35`
+                      : "transparent",
+                  boxShadow:
+                    isActive
+                      ? `0 4px 16px ${accent}35`
+                      : isHovered
+                      ? `0 2px 8px ${accent}20`
+                      : "none",
+                  transform:
+                    isHovered && !isActive
+                      ? "translateY(-1px)"
+                      : "none",
+                }}
+              >
+                <span className="nav-btn-icon">{icon}</span>
+                {name.toUpperCase()}
+                {isActive && (
+                  <span
+                    className="nav-active-bar"
+                    style={{ background: accent }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── RIGHT BADGE ── */}
+        <div className="navbar-right">
+          <div className="navbar-badge">🎱 75 BALL</div>
+        </div>
+
+      </nav>
     </>
   );
 }
