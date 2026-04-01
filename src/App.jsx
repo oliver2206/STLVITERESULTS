@@ -177,11 +177,13 @@ export default function App() {
   return (
     <div
       style={{
-        position: "relative",
-        width: "100%",
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
         height: "100vh",
         background: "linear-gradient(135deg, #3a6fd8 0%, #6a4fd8 50%, #4a8fd8 100%)",
         overflow: "hidden",
+        zIndex: 0,
       }}
     >
       <canvas
