@@ -181,7 +181,7 @@ export default function Navbar({ activePage, onNavigate, onHome }) {
           <div className="navbar-logo-ring">🍀</div>
           <div>
             <div className="navbar-title">BINGO FORTUNE</div>
-            <div className="navbar-home-hint">↩ TAP TO GO HOME</div>
+            <div className="navbar-home-hint">↩ CLICK TO GO HOME</div>
           </div>
         </div>
 
