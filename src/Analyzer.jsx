@@ -41,6 +41,7 @@ function Pattern({ goBack }) {
   const [showRecent, setShowRecent] = useState(true);
   const panelRef = useRef(null);
   const dragRef = useRef(null);
+  const [touchStartPos, setTouchStartPos] = useState(null);
   
   // Ball records state
   const [ballRecords, setBallRecords] = useState([]);
@@ -69,50 +70,76 @@ function Pattern({ goBack }) {
   const [gameHistory, setGameHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  /* ------------------ FLOATING PANEL DRAG FUNCTIONALITY ------------------ */
-  const handleMouseDown = (e) => {
-    if (e.target.closest('.drag-handle')) {
+  /* ------------------ FLOATING PANEL DRAG FUNCTIONALITY (Mouse + Touch) ------------------ */
+  const handleDragStart = (e) => {
+    // Check if the drag handle was clicked/touched
+    const target = e.target.closest('.drag-handle');
+    if (target) {
       setIsDragging(true);
-      const rect = panelRef.current.getBoundingClientRect();
-      setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      });
+      
+      // Get client coordinates (works for both mouse and touch)
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      
+      if (clientX && clientY && panelRef.current) {
+        const rect = panelRef.current.getBoundingClientRect();
+        setDragOffset({
+          x: clientX - rect.left,
+          y: clientY - rect.top
+        });
+      }
+      
       e.preventDefault();
     }
   };
 
-  const handleMouseMove = (e) => {
+  const handleDragMove = (e) => {
     if (isDragging && panelRef.current) {
-      const newX = e.clientX - dragOffset.x;
-      const newY = e.clientY - dragOffset.y;
+      // Get client coordinates (works for both mouse and touch)
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
       
-      // Keep panel within viewport bounds
-      const maxX = window.innerWidth - panelRef.current.offsetWidth;
-      const maxY = window.innerHeight - panelRef.current.offsetHeight;
+      if (clientX && clientY) {
+        let newX = clientX - dragOffset.x;
+        let newY = clientY - dragOffset.y;
+        
+        // Keep panel within viewport bounds
+        const maxX = window.innerWidth - panelRef.current.offsetWidth;
+        const maxY = window.innerHeight - panelRef.current.offsetHeight;
+        
+        setPanelPosition({
+          x: Math.max(0, Math.min(newX, maxX)),
+          y: Math.max(0, Math.min(newY, maxY))
+        });
+      }
       
-      setPanelPosition({
-        x: Math.max(0, Math.min(newX, maxX)),
-        y: Math.max(0, Math.min(newY, maxY))
-      });
+      e.preventDefault();
     }
   };
 
-  const handleMouseUp = () => {
+  const handleDragEnd = () => {
     setIsDragging(false);
+    setTouchStartPos(null);
   };
 
+  // Mouse event listeners
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleDragMove, { passive: false });
+      window.addEventListener('touchend', handleDragEnd);
     } else {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleDragMove);
+      window.removeEventListener('touchend', handleDragEnd);
     }
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleDragMove);
+      window.removeEventListener('touchend', handleDragEnd);
     };
   }, [isDragging]);
 
@@ -122,7 +149,6 @@ function Pattern({ goBack }) {
     const num = parseInt(inputNumber);
     if (num >= 1 && num <= 75) {
       toggleNumber(num);
-      // Add to recent calls
       setRecentCalls(prev => [num, ...prev.filter(n => n !== num)].slice(0, 10));
       setInputNumber("");
     } else if (inputNumber !== "") {
@@ -798,39 +824,41 @@ function Pattern({ goBack }) {
     if (isPrime(num)) ballStats.prime++;
   });
 
-  // Styles
+  // Styles (with mobile touch optimizations)
   const styles = {
     container: { minHeight: "100vh", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
     header: { background: "rgba(255, 255, 255, 0.95)", boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)", position: "sticky", top: 0, zIndex: 100 },
     headerContent: { maxWidth: "1400px", margin: "0 auto", padding: "1rem 2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" },
-    title: { margin: 0, fontSize: "1.8rem", background: "linear-gradient(135deg, #667eea, #764ba2)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
+    title: { margin: 0, fontSize: "clamp(1.2rem, 5vw, 1.8rem)", background: "linear-gradient(135deg, #667eea, #764ba2)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
     headerButtons: { display: "flex", gap: "0.5rem", flexWrap: "wrap" },
-    backButton: { padding: "0.5rem 1rem", background: "#f0f0f0", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease" },
-    savedButton: { padding: "0.5rem 1rem", background: "#ffd700", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease" },
-    resultsButton: { padding: "0.5rem 1rem", background: "#4CAF50", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease" },
-    historyButton: { padding: "0.5rem 1rem", background: "#2196F3", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease" },
-    ballRecordsButton: { padding: "0.5rem 1rem", background: "#FF5722", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease" },
-    floatingPanelToggle: { padding: "0.5rem 1rem", background: "#9C27B0", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease" },
-    main: { maxWidth: "1400px", margin: "0 auto", padding: "2rem" },
+    backButton: { padding: "0.5rem 1rem", background: "#f0f0f0", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
+    savedButton: { padding: "0.5rem 1rem", background: "#ffd700", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
+    resultsButton: { padding: "0.5rem 1rem", background: "#4CAF50", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
+    historyButton: { padding: "0.5rem 1rem", background: "#2196F3", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
+    ballRecordsButton: { padding: "0.5rem 1rem", background: "#FF5722", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
+    floatingPanelToggle: { padding: "0.5rem 1rem", background: "#9C27B0", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
+    main: { maxWidth: "1400px", margin: "0 auto", padding: "clamp(1rem, 3vw, 2rem)" },
     floatingPanel: {
       position: "fixed",
       background: "white",
       borderRadius: "16px",
       boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
       zIndex: 1000,
-      minWidth: "280px",
-      cursor: "default"
+      minWidth: "clamp(260px, 80vw, 320px)",
+      cursor: "default",
+      touchAction: "none" // Prevents scrolling while dragging on mobile
     },
     dragHandle: {
       padding: "12px 16px",
       background: "linear-gradient(135deg, #667eea, #764ba2)",
       color: "white",
       borderRadius: "16px 16px 0 0",
-      cursor: "move",
+      cursor: "grab",
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      userSelect: "none"
+      userSelect: "none",
+      touchAction: "none"
     },
     panelContent: { padding: "16px" },
     numberInput: {
@@ -840,19 +868,21 @@ function Pattern({ goBack }) {
     },
     input: {
       flex: 1,
-      padding: "10px",
+      padding: "12px",
       border: "2px solid #e0e0e0",
       borderRadius: "8px",
-      fontSize: "16px"
+      fontSize: "16px",
+      WebkitAppearance: "none" // Removes default styling on iOS
     },
     callButton: {
-      padding: "10px 20px",
+      padding: "12px 20px",
       background: "linear-gradient(135deg, #667eea, #764ba2)",
       color: "white",
       border: "none",
       borderRadius: "8px",
       cursor: "pointer",
-      fontWeight: "bold"
+      fontWeight: "bold",
+      fontSize: "16px"
     },
     quickButtons: {
       display: "grid",
@@ -861,13 +891,14 @@ function Pattern({ goBack }) {
       marginBottom: "16px"
     },
     quickButton: {
-      padding: "8px",
+      padding: "10px 4px",
       background: "#f0f0f0",
       border: "1px solid #ddd",
       borderRadius: "6px",
       cursor: "pointer",
-      fontSize: "12px",
-      fontWeight: "bold"
+      fontSize: "clamp(12px, 3vw, 14px)",
+      fontWeight: "bold",
+      transition: "all 0.2s ease"
     },
     recentSection: {
       marginTop: "12px",
@@ -888,12 +919,13 @@ function Pattern({ goBack }) {
       gap: "6px"
     },
     recentNumber: {
-      padding: "4px 8px",
+      padding: "6px 12px",
       background: "#ffeb3b",
       borderRadius: "20px",
-      fontSize: "12px",
+      fontSize: "14px",
       cursor: "pointer",
-      fontWeight: "bold"
+      fontWeight: "bold",
+      transition: "all 0.2s ease"
     },
     statusBadge: {
       display: "inline-block",
@@ -902,10 +934,10 @@ function Pattern({ goBack }) {
       borderRadius: "50%",
       marginRight: "6px"
     },
-    patternSelector: { display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap", justifyContent: "center" },
-    patternButton: (isActive) => ({ display: "flex", alignItems: "center", gap: "0.5rem", padding: "1rem 2rem", border: "none", borderRadius: "12px", background: isActive ? "linear-gradient(135deg, #667eea, #764ba2)" : "white", color: isActive ? "white" : "black", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", cursor: "pointer", fontSize: "1rem", transition: "all 0.3s ease", position: "relative" }),
+    patternSelector: { display: "flex", gap: "0.5rem", marginBottom: "2rem", flexWrap: "wrap", justifyContent: "center" },
+    patternButton: (isActive) => ({ display: "flex", alignItems: "center", gap: "0.5rem", padding: "clamp(0.5rem, 3vw, 1rem) clamp(1rem, 4vw, 2rem)", border: "none", borderRadius: "12px", background: isActive ? "linear-gradient(135deg, #667eea, #764ba2)" : "white", color: isActive ? "white" : "black", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease", position: "relative" }),
     controlsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", marginBottom: "2rem" },
-    controlCard: { background: "white", borderRadius: "16px", padding: "1.5rem", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" },
+    controlCard: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 3vw, 1.5rem)", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" },
     inputGroup: { marginBottom: "1rem" },
     label: { display: "block", marginBottom: "0.5rem", color: "#666", fontSize: "0.9rem", fontWeight: "500" },
     textarea: { width: "100%", padding: "0.5rem", border: "2px solid #e0e0e0", borderRadius: "8px", fontSize: "1rem", minHeight: "80px", boxSizing: "border-box", fontFamily: "inherit" },
@@ -932,11 +964,11 @@ function Pattern({ goBack }) {
     newRoundButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#ff9800", color: "white", fontSize: "1rem", cursor: "pointer", marginBottom: "0.5rem", transition: "all 0.3s ease", fontWeight: "bold" },
     recordResultButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#9C27B0", color: "white", fontSize: "1rem", cursor: "pointer", marginBottom: "0.5rem", transition: "all 0.3s ease", fontWeight: "bold" },
     resetButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#ff4757", color: "white", fontSize: "1rem", cursor: "pointer" },
-    ballsSection: { background: "white", borderRadius: "16px", padding: "1.5rem", marginBottom: "2rem" },
-    ballsGrid: { display: "grid", gridTemplateColumns: "repeat(15, 1fr)", gap: "0.5rem" },
-    ball: (active) => ({ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: active ? "#ffeb3b" : "white", border: active ? "2px solid #fbc02d" : "2px solid #e0e0e0", borderRadius: "50%", cursor: "pointer", transition: "all 0.3s ease", fontSize: "0.8rem" }),
+    ballsSection: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 3vw, 1.5rem)", marginBottom: "2rem", overflowX: "auto" },
+    ballsGrid: { display: "grid", gridTemplateColumns: "repeat(15, 1fr)", gap: "0.5rem", minWidth: "500px" },
+    ball: (active) => ({ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: active ? "#ffeb3b" : "white", border: active ? "2px solid #fbc02d" : "2px solid #e0e0e0", borderRadius: "50%", cursor: "pointer", transition: "all 0.3s ease", fontSize: "clamp(10px, 2.5vw, 12px)", fontWeight: "bold" }),
     favoriteBall: { border: "2px solid #ffd700", boxShadow: "0 0 10px rgba(255,215,0,0.5)" },
-    cardsContainer: { display: "grid", gridTemplateColumns: viewMode === "grid" ? "repeat(auto-fill, minmax(300px, 1fr))" : "1fr", gap: "1.5rem" },
+    cardsContainer: { display: "grid", gridTemplateColumns: viewMode === "grid" ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: "1.5rem" },
     cardContainer: { perspective: "1000px", height: "auto", cursor: "pointer", position: "relative" },
     cardInner: (isFlipped) => ({ position: "relative", width: "100%", height: "100%", transition: "transform 0.6s", transformStyle: "preserve-3d", transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }),
     cardFront: { position: "relative", width: "100%", height: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" },
@@ -944,7 +976,7 @@ function Pattern({ goBack }) {
     bingoCard: (isWinner, isPinned, hasFavorites) => ({ background: "white", border: isWinner ? "3px solid #ff4757" : isPinned ? "3px solid #ffd700" : hasFavorites ? "2px solid #4CAF50" : "2px solid #e0e0e0", borderRadius: "12px", padding: "1rem", transition: "all 0.3s ease", width: "100%", height: "100%", boxSizing: "border-box" }),
     bingoGrid: { display: "flex", flexDirection: "column", gap: "0.25rem", marginBottom: "0.5rem" },
     bingoRow: { display: "flex", justifyContent: "space-around" },
-    bingoCell: (isHighlighted, isFree, isFavorite) => ({ width: "35px", height: "35px", display: "flex", alignItems: "center", justifyContent: "center", border: isFavorite ? "2px solid #ffd700" : "1px solid #e0e0e0", borderRadius: "4px", background: isHighlighted ? "#ffeb3b" : isFree ? "#f0f0f0" : "white", fontWeight: isHighlighted ? "bold" : "normal", fontSize: isFree ? "1.2rem" : "0.9rem", cursor: "default", position: "relative" }),
+    bingoCell: (isHighlighted, isFree, isFavorite) => ({ width: "clamp(30px, 8vw, 35px)", height: "clamp(30px, 8vw, 35px)", display: "flex", alignItems: "center", justifyContent: "center", border: isFavorite ? "2px solid #ffd700" : "1px solid #e0e0e0", borderRadius: "4px", background: isHighlighted ? "#ffeb3b" : isFree ? "#f0f0f0" : "white", fontWeight: isHighlighted ? "bold" : "normal", fontSize: isFree ? "1.2rem" : "clamp(10px, 3vw, 12px)", cursor: "default", position: "relative" }),
     favoriteStar: { position: "absolute", top: "-5px", right: "-5px", fontSize: "0.6rem", color: "#ffd700" },
     editInput: { width: "30px", height: "30px", textAlign: "center", border: "2px solid #667eea", borderRadius: "4px", fontSize: "0.9rem", outline: "none" },
     cardActions: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "flex", gap: "0.5rem", zIndex: 20, background: "rgba(255, 255, 255, 0.95)", padding: "0.75rem 1rem", borderRadius: "40px", boxShadow: "0 4px 15px rgba(0,0,0,0.2)", border: "2px solid #667eea", opacity: 0, transition: "opacity 0.3s ease", pointerEvents: "none" },
@@ -962,9 +994,9 @@ function Pattern({ goBack }) {
     cardNumber: { position: "absolute", top: "5px", left: "5px", fontSize: "0.8rem", color: "white", background: "rgba(0,0,0,0.3)", padding: "2px 8px", borderRadius: "10px", zIndex: 20 },
     patternCount: { background: "#ffd700", color: "#333", borderRadius: "12px", padding: "0.2rem 0.5rem", fontSize: "0.8rem", fontWeight: "bold", marginLeft: "auto" },
     modal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
-    modalContent: { background: "white", borderRadius: "16px", padding: "2rem", maxWidth: "800px", width: "90%", maxHeight: "80vh", overflowY: "auto" },
+    modalContent: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 5vw, 2rem)", maxWidth: "800px", width: "90%", maxHeight: "80vh", overflowY: "auto" },
     savedCardsModal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
-    savedCardsContent: { background: "white", borderRadius: "16px", padding: "2rem", maxWidth: "800px", width: "90%", maxHeight: "80vh", overflowY: "auto" },
+    savedCardsContent: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 5vw, 2rem)", maxWidth: "800px", width: "90%", maxHeight: "80vh", overflowY: "auto" },
     savedCardItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer", transition: "background 0.2s ease" },
     savedCardInfo: { flex: 1 },
     savedCardDate: { fontSize: "0.8rem", color: "#999" },
@@ -973,19 +1005,19 @@ function Pattern({ goBack }) {
     closeButton: { padding: "0.5rem 1rem", background: "#ff4757", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", marginTop: "1rem" },
     exportButton: { padding: "0.5rem 1rem", background: "#4CAF50", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", marginLeft: "0.5rem" },
     resultItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer" },
-    resultHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" },
+    resultHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" },
     winnerBadge: { background: "#ff4757", color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem" },
     noteInput: { width: "100%", padding: "0.5rem", border: "1px solid #e0e0e0", borderRadius: "8px", marginTop: "0.5rem", marginBottom: "0.5rem" },
     statsContainer: { background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", padding: "1.5rem", borderRadius: "16px", marginBottom: "1rem", color: "white" },
     statsGridMain: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem", marginTop: "1rem" },
     statBox: { background: "rgba(255,255,255,0.2)", padding: "1rem", borderRadius: "12px", textAlign: "center" },
-    historyItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" },
+    historyItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", flexWrap: "wrap", gap: "0.5rem" },
     historyPattern: { display: "flex", alignItems: "center", gap: "0.5rem" },
     ballRecordItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer" },
-    ballRecordHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" },
+    ballRecordHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" },
     ballRecordName: { fontWeight: "bold", fontSize: "1.1rem" },
     ballRecordCount: { background: "#667eea", color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem" },
-    ballRecordSequence: { color: "#666", fontSize: "0.85rem", marginTop: "0.25rem" }
+    ballRecordSequence: { color: "#666", fontSize: "0.85rem", marginTop: "0.25rem", wordBreak: "break-all" }
   };
 
   // Add keyframes animation and hover styles
@@ -999,14 +1031,26 @@ function Pattern({ goBack }) {
     .number-button:hover { transform: scale(1.1); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     .column-button:hover { background: #667eea; color: white; }
     .list-item:hover { background: #f5f5f5; }
-    .drag-handle:hover { cursor: move; }
-    .quick-button:hover { background: #667eea; color: white; transform: scale(1.05); }
-    .recent-number:hover { background: #ffd700; transform: scale(1.05); }
+    .drag-handle:active { cursor: grabbing; }
+    .quick-button:active { transform: scale(0.95); }
+    .recent-number:active { transform: scale(0.95); }
+    
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+      .card-actions { opacity: 1 !important; }
+      .action-button { width: 44px; height: 44px; font-size: 1.2rem; }
+      .card-actions { padding: 0.5rem 0.75rem; }
+      .patternButton { padding: 0.5rem 1rem; }
+      .headerButtons button { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+      .floatingPanel { min-width: 280px; }
+      .quickButton { padding: 8px 4px; }
+      .recentNumber { padding: 4px 10px; font-size: 12px; }
+    }
   `;
   document.head.appendChild(styleElement);
 
   return (
-    <div style={styles.container} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+    <div style={styles.container} onMouseMove={handleDragMove} onMouseUp={handleDragEnd}>
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.title}>🎯 Bingo Pattern Analyzer (44 Balls)</h1>
@@ -1031,7 +1075,7 @@ function Pattern({ goBack }) {
         </div>
       </header>
 
-      {/* Floating Ball Input Panel */}
+      {/* Floating Ball Input Panel with Touch Support */}
       {showFloatingPanel && (
         <div 
           ref={panelRef}
@@ -1041,13 +1085,18 @@ function Pattern({ goBack }) {
             left: panelPosition.x
           }}
         >
-          <div className="drag-handle" style={styles.dragHandle} onMouseDown={handleMouseDown}>
+          <div 
+            className="drag-handle" 
+            style={styles.dragHandle} 
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+          >
             <span>🎱 Quick Ball Caller</span>
             <div>
               <span style={{ fontSize: "12px", marginRight: "8px" }}>📌 Drag to move</span>
               <button 
                 onClick={() => setShowFloatingPanel(false)}
-                style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "16px" }}
+                style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "16px", padding: "4px" }}
               >
                 ✕
               </button>
@@ -1062,6 +1111,8 @@ function Pattern({ goBack }) {
                 onChange={(e) => setInputNumber(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleNumberInput(e)}
                 style={styles.input}
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
               <button onClick={handleNumberInput} style={styles.callButton}>Call</button>
             </div>
@@ -1083,7 +1134,7 @@ function Pattern({ goBack }) {
               <div style={styles.recentTitle}>
                 <span>📋 Recent Calls</span>
                 {recentCalls.length > 0 && (
-                  <button onClick={clearRecentCalls} style={{ fontSize: "10px", background: "none", border: "none", color: "#999", cursor: "pointer" }}>
+                  <button onClick={clearRecentCalls} style={{ fontSize: "10px", background: "none", border: "none", color: "#999", cursor: "pointer", padding: "4px" }}>
                     Clear
                   </button>
                 )}
@@ -1131,7 +1182,7 @@ function Pattern({ goBack }) {
           ))}
         </div>
 
-        {/* Controls (same as before) */}
+        {/* Controls */}
         <div style={styles.controlsGrid}>
           <div style={styles.controlCard}>
             <h3 style={{ margin: "0 0 1rem 0" }}>📋 Card Generation</h3>
@@ -1303,7 +1354,7 @@ function Pattern({ goBack }) {
                     <div style={{ height: "4px", background: "#e0e0e0", borderRadius: "2px", marginBottom: "0.5rem", overflow: "hidden" }}><div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #4CAF50, #8BC34A)", transition: "width 0.3s ease" }} /></div>
                     <div style={{ textAlign: "center", marginBottom: "0.5rem", fontSize: "0.9rem", color: "#666" }}>Win Chance: {Math.round(winPercentage)}%</div>
                     <div style={styles.bingoGrid}>
-                      <div style={styles.bingoRow}><span style={{ width: "35px", textAlign: "center", fontWeight: "bold" }}>B</span><span style={{ width: "35px", textAlign: "center", fontWeight: "bold" }}>I</span><span style={{ width: "35px", textAlign: "center", fontWeight: "bold" }}>N</span><span style={{ width: "35px", textAlign: "center", fontWeight: "bold" }}>G</span><span style={{ width: "35px", textAlign: "center", fontWeight: "bold" }}>O</span></div>
+                      <div style={styles.bingoRow}><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>B</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>I</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>N</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>G</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>O</span></div>
                       {Array.from({ length: 5 }).map((_, row) => (<div key={row} style={styles.bingoRow}>
                         {card.map((col, c) => { const cell = col[row]; const isHighlighted = highlightNumbers.includes(cell); const isFree = cell === "FREE"; const isFavorite = !isFree && favoriteNumbersList.includes(cell); if (editingCard === idx) { return (<input key={c} type="text" value={cell} onChange={(e) => updateCell(c, row, e.target.value, e)} onClick={(e) => e.stopPropagation()} style={styles.editInput} disabled={cell === "FREE"} />); } return (<div key={c} style={styles.bingoCell(isHighlighted, isFree, isFavorite)}>{isFree ? "⭐" : cell}{isFavorite && !isHighlighted && (<span style={styles.favoriteStar}>⭐</span>)}</div>); })}
                       </div>))}
@@ -1327,7 +1378,7 @@ function Pattern({ goBack }) {
       {/* Ball Records Modal */}
       {showBallRecords && (<div style={styles.modal} onClick={() => setShowBallRecords(false)}>
         <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
             <h2>🎱 44-Ball Records</h2>
             <div>{ballRecords.length > 0 && (<button onClick={exportBallRecords} style={styles.exportButton}>📥 Export</button>)}</div>
           </div>
@@ -1356,14 +1407,14 @@ function Pattern({ goBack }) {
 
           <div style={{ marginTop: "1rem", padding: "1rem", background: "#f8f9fa", borderRadius: "8px" }}>
             <h4>💾 Save Current Ball Sequence</h4>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <input type="text" placeholder="Record name" value={ballRecordName} onChange={(e) => setBallRecordName(e.target.value)} style={{ ...styles.input, flex: 1 }} />
               <button onClick={saveBallRecord} style={styles.smallButton}>Save Record</button>
             </div>
-            {highlightNumbers.length > 0 && (<div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "#666" }}>Current: {highlightNumbers.join(", ")}</div>)}
+            {highlightNumbers.length > 0 && (<div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "#666", wordBreak: "break-all" }}>Current: {highlightNumbers.join(", ")}</div>)}
           </div>
 
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", flexWrap: "wrap" }}>
             <label style={{...styles.smallButton, background: "#2196F3", cursor: "pointer"}}>📥 Import Records<input type="file" accept=".json" onChange={importBallRecords} style={{ display: "none" }} /></label>
             <button onClick={clearBallRecord} style={{...styles.smallButton, background: "#ff9800"}}>Clear Current</button>
           </div>
@@ -1375,11 +1426,11 @@ function Pattern({ goBack }) {
       {/* Results Modal */}
       {showResults && (<div style={styles.modal} onClick={() => setShowResults(false)}>
         <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}><h2>🏆 Bingo Results</h2><div>{gameResults.length > 0 && (<button onClick={exportResults} style={styles.exportButton}>📥 Export</button>)}</div></div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}><h2>🏆 Bingo Results</h2><div>{gameResults.length > 0 && (<button onClick={exportResults} style={styles.exportButton}>📥 Export</button>)}</div></div>
           {gameResults.length === 0 ? (<p style={{ textAlign: "center", color: "#999", padding: "2rem" }}>No results yet. Click "Record BINGO Result" when you have winners!</p>) : (<>
-            {stats && (<div style={styles.statsContainer}><h3 style={{ margin: 0 }}>📊 Statistics</h3><div style={styles.statsGridMain}><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.totalGames}</div><div>Total Games</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.averageBallsToWin}</div><div>Avg Balls to Win</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.averageWinnersPerGame}</div><div>Avg Winners/Game</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.mostWinningPattern}</div><div>Most Winning Pattern</div></div></div><div style={{ marginTop: "1rem" }}><h4>Pattern Statistics</h4><div style={{ display: "grid", gap: "0.5rem" }}>{Object.entries(stats.patternStats).map(([pattern, data]) => (<div key={pattern} style={{ background: "rgba(255,255,255,0.2)", padding: "0.5rem", borderRadius: "8px", display: "flex", justifyContent: "space-between" }}><span>{data.icon} {data.name}</span><span>{data.count} games, {data.totalWinners} winners</span></div>))}</div></div></div>)}
+            {stats && (<div style={styles.statsContainer}><h3 style={{ margin: 0 }}>📊 Statistics</h3><div style={styles.statsGridMain}><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.totalGames}</div><div>Total Games</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.averageBallsToWin}</div><div>Avg Balls to Win</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.averageWinnersPerGame}</div><div>Avg Winners/Game</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.mostWinningPattern}</div><div>Most Winning Pattern</div></div></div><div style={{ marginTop: "1rem" }}><h4>Pattern Statistics</h4><div style={{ display: "grid", gap: "0.5rem" }}>{Object.entries(stats.patternStats).map(([pattern, data]) => (<div key={pattern} style={{ background: "rgba(255,255,255,0.2)", padding: "0.5rem", borderRadius: "8px", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}><span>{data.icon} {data.name}</span><span>{data.count} games, {data.totalWinners} winners</span></div>))}</div></div></div>)}
             <h3>Game Results</h3>
-            {gameResults.map(result => (<div key={result.id} style={styles.resultItem}><div style={styles.resultHeader}><div><strong>{result.patternIcon} {result.patternName}</strong><span style={{ color: "#999", marginLeft: "0.5rem" }}>{result.timestamp}</span></div><span style={styles.winnerBadge}>{result.winnerCount} winner{result.winnerCount !== 1 ? 's' : ''}</span></div><div>🎱 {result.ballsDrawnCount} balls drawn</div><div>📇 {result.totalCards} cards in play</div>{result.notes && (<div style={{ color: "#666", fontStyle: "italic", marginTop: "0.5rem" }}>📝 {result.notes}</div>)}<div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}><input type="text" placeholder="Add notes..." value={result.notes || ''} onChange={(e) => saveGameResult(result.id, e.target.value)} style={styles.noteInput} /><button onClick={() => deleteGameResult(result.id)} style={{...styles.deleteButton, padding: "0.5rem"}}>🗑️</button></div></div>))}
+            {gameResults.map(result => (<div key={result.id} style={styles.resultItem}><div style={styles.resultHeader}><div><strong>{result.patternIcon} {result.patternName}</strong><span style={{ color: "#999", marginLeft: "0.5rem" }}>{result.timestamp}</span></div><span style={styles.winnerBadge}>{result.winnerCount} winner{result.winnerCount !== 1 ? 's' : ''}</span></div><div>🎱 {result.ballsDrawnCount} balls drawn</div><div>📇 {result.totalCards} cards in play</div>{result.notes && (<div style={{ color: "#666", fontStyle: "italic", marginTop: "0.5rem" }}>📝 {result.notes}</div>)}<div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}><input type="text" placeholder="Add notes..." value={result.notes || ''} onChange={(e) => saveGameResult(result.id, e.target.value)} style={styles.noteInput} /><button onClick={() => deleteGameResult(result.id)} style={{...styles.deleteButton, padding: "0.5rem"}}>🗑️</button></div></div>))}
           </>)}
           <button onClick={() => setShowResults(false)} style={styles.closeButton}>Close</button>
         </div>
