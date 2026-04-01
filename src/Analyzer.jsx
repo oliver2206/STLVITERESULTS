@@ -1,258 +1,576 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
-function Pattern({ goBack }) {
-  const maxCards = 5000;
-  const maxBalls = 44;
+export default function Generate({ onBack }) {
+  // ==================== CONSTANTS ====================
+  const CONSTANTS = {
+    MAX_CARDS: 5000,
+    MAX_BALLS: 48,
+    TOTAL_BALLS: 75,
+    MAX_ROUNDS: 30,
+    COLUMNS: ['B', 'I', 'N', 'G', 'O'],
+    COLUMN_RANGES: {
+      B: [1, 15],
+      I: [16, 30],
+      N: [31, 45],
+      G: [46, 60],
+      O: [61, 75]
+    }
+  };
 
+  const PATTERNS = [
+    { id: "blackout", label: "Blackout", icon: "⬛", numbersNeeded: 24 },
+    { id: "t", label: "T Pattern", icon: "📐", numbersNeeded: 9 },
+    { id: "x", label: "X Pattern", icon: "❌", numbersNeeded: 9 },
+    { id: "twoLines", label: "2 Lines", icon: "📏", numbersNeeded: 10 },
+    { id: "threeLines", label: "3 Lines", icon: "📊", numbersNeeded: 15 },
+    { id: "fourLines", label: "4 Lines", icon: "📈", numbersNeeded: 20 },
+    { id: "fourCorners", label: "4 Corners", icon: "🔲", numbersNeeded: 4 },
+    { id: "sideToSide", label: "Side to Side", icon: "⬆️⬇️", numbersNeeded: 20 },
+    { id: "emptyCross", label: "Empty Cross", icon: "✖️", numbersNeeded: 16 }
+  ];
+
+  const AVAILABLE_EMOJIS = ["🍀", "🎫", "⭐", "🎯", "💎", "🔥", "🌈", "🎲", "♠️", "♥️", "♦️", "♣️"];
+
+  // ==================== DEFAULT CARDS ====================
+  const DEFAULT_CARDS = [
+    [
+      [12, 10, 4, 6, 14],
+      [16, 21, 18, 24, 19],
+      [36, 35, "FREE", 31, 43],
+      [56, 48, 54, 49, 50],
+      [74, 63, 68, 67, 70]
+    ],
+    [
+      [5, 12, 6, 11, 8],
+      [20, 16, 29, 27, 30],
+      [42, 41, "FREE", 45, 43],
+      [51, 53, 57, 50, 60],
+      [72, 63, 74, 73, 64]
+    ]
+  ];
+
+  // ==================== INITIAL STATE ====================
+  const DEFAULT_PROFILE = {
+    name: "Harry",
+    avatar: "🎯",
+    level: 5,
+    experience: 1250,
+    gamesPlayed: 47,
+    winRate: 68,
+    favoritePattern: "X Pattern",
+    joinDate: "March 2026"
+  };
+
+  // ==================== STATE ====================
   const [numCardsInput, setNumCardsInput] = useState(10);
   const [ballsCalledInput, setBallsCalledInput] = useState(25);
-  const [cards, setCards] = useState([]);
+  const [targetWinPercentage, setTargetWinPercentage] = useState(98);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const [roundFrequency, setRoundFrequency] = useState([]);
+  const [showRoundFrequency, setShowRoundFrequency] = useState(true);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [selectedNumber, setSelectedNumber] = useState(null);
+  const [roundStats, setRoundStats] = useState({
+    totalRounds: 0,
+    averageNumbersPerRound: 0,
+    mostFrequentNumber: '',
+    leastFrequentNumber: '',
+    uniqueNumbers: 0
+  });
+
+  const [roundHistory, setRoundHistory] = useState([]);
+  const [showRoundHistory, setShowRoundHistory] = useState(false);
+  const [selectedRound, setSelectedRound] = useState(null);
+  const [autoAdvanceRound, setAutoAdvanceRound] = useState(true);
+  const [roundStatsByRound, setRoundStatsByRound] = useState({});
+
+  const [generatedCards, setGeneratedCards] = useState([]);
+  const [myCards, setMyCards] = useState(DEFAULT_CARDS);
+  const [cardWinPercentages, setCardWinPercentages] = useState([]);
+  const [cardLabels, setCardLabels] = useState({
+    0: { name: "Harry's Card", emoji: "🎯", notes: "BALL PICKER" },
+    1: { name: "Second Card", emoji: "🎫", notes: "" }
+  });
+
   const [highlightNumbers, setHighlightNumbers] = useState([]);
   const [currentPattern, setCurrentPattern] = useState("blackout");
-  const [winners, setWinners] = useState({ 
-    blackout: [], 
-    t: [], 
-    x: [], 
-    twoLines: [],
-    threeLines: [],
-    fourLines: [],
-    fourCorners: [],
-    sideToSide: [],
-    emptyCross: []
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [winners, setWinners] = useState({});
+
   const [viewMode, setViewMode] = useState("grid");
-  const [targetWinPercentage, setTargetWinPercentage] = useState(98);
-  const [cardWinPercentages, setCardWinPercentages] = useState([]);
   const [flippedCards, setFlippedCards] = useState({});
   const [pinnedCards, setPinnedCards] = useState({});
+  const [activeCardSection, setActiveCardSection] = useState("myCards");
+
   const [editingCard, setEditingCard] = useState(null);
   const [editFormData, setEditFormData] = useState(null);
-  const [savedCards, setSavedCards] = useState([]);
-  const [showSavedCards, setShowSavedCards] = useState(false);
-  
-  // Floating panel state
-  const [showFloatingPanel, setShowFloatingPanel] = useState(true);
-  const [panelPosition, setPanelPosition] = useState({ x: 20, y: 100 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [inputNumber, setInputNumber] = useState("");
-  const [recentCalls, setRecentCalls] = useState([]);
-  const [showRecent, setShowRecent] = useState(true);
-  const panelRef = useRef(null);
-  const dragRef = useRef(null);
-  const [touchStartPos, setTouchStartPos] = useState(null);
-  
-  // Ball records state
-  const [ballRecords, setBallRecords] = useState([]);
-  const [showBallRecords, setShowBallRecords] = useState(false);
-  const [ballRecordName, setBallRecordName] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  
-  // Favorite numbers state
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [labelCardIndex, setLabelCardIndex] = useState(null);
+  const [labelInput, setLabelInput] = useState("");
+  const [labelCardSection, setLabelCardSection] = useState("myCards");
+  const [validationErrors, setValidationErrors] = useState({});
+
+  const [manualNumberInput, setManualNumberInput] = useState("");
+
   const [favoriteNumbers, setFavoriteNumbers] = useState("");
   const [favoriteNumbersList, setFavoriteNumbersList] = useState([]);
   const [favoriteBias, setFavoriteBias] = useState(70);
   const [showFavoriteStats, setShowFavoriteStats] = useState(false);
   const [showNumberSelector, setShowNumberSelector] = useState(false);
-  
-  // Favorite lists state
   const [favoriteLists, setFavoriteLists] = useState([]);
   const [showFavoriteLists, setShowFavoriteLists] = useState(false);
   const [currentListName, setCurrentListName] = useState("");
   const [editingListName, setEditingListName] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Bingo results state
+
   const [gameResults, setGameResults] = useState([]);
-  const [showResults, setShowResults] = useState(false);
-  const [currentGameResult, setCurrentGameResult] = useState(null);
   const [gameHistory, setGameHistory] = useState([]);
+  const [showResults, setShowResults] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [currentGameResult, setCurrentGameResult] = useState(null);
 
-  /* ------------------ FLOATING PANEL DRAG FUNCTIONALITY (Mouse + Touch) ------------------ */
-  const handleDragStart = (e) => {
-    // Check if the drag handle was clicked/touched
-    const target = e.target.closest('.drag-handle');
-    if (target) {
-      setIsDragging(true);
-      
-      // Get client coordinates (works for both mouse and touch)
-      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-      
-      if (clientX && clientY && panelRef.current) {
-        const rect = panelRef.current.getBoundingClientRect();
-        setDragOffset({
-          x: clientX - rect.left,
-          y: clientY - rect.top
-        });
-      }
-      
-      e.preventDefault();
-    }
-  };
+  const [savedCards, setSavedCards] = useState([]);
+  const [showSavedCards, setShowSavedCards] = useState(false);
 
-  const handleDragMove = (e) => {
-    if (isDragging && panelRef.current) {
-      // Get client coordinates (works for both mouse and touch)
-      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-      
-      if (clientX && clientY) {
-        let newX = clientX - dragOffset.x;
-        let newY = clientY - dragOffset.y;
-        
-        // Keep panel within viewport bounds
-        const maxX = window.innerWidth - panelRef.current.offsetWidth;
-        const maxY = window.innerHeight - panelRef.current.offsetHeight;
-        
-        setPanelPosition({
-          x: Math.max(0, Math.min(newX, maxX)),
-          y: Math.max(0, Math.min(newY, maxY))
-        });
-      }
-      
-      e.preventDefault();
-    }
-  };
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileData] = useState(DEFAULT_PROFILE);
 
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    setTouchStartPos(null);
-  };
-
-  // Mouse event listeners
+  // ==================== EFFECTS ====================
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleDragMove);
-      window.addEventListener('mouseup', handleDragEnd);
-      window.addEventListener('touchmove', handleDragMove, { passive: false });
-      window.addEventListener('touchend', handleDragEnd);
-    } else {
-      window.removeEventListener('mousemove', handleDragMove);
-      window.removeEventListener('mouseup', handleDragEnd);
-      window.removeEventListener('touchmove', handleDragMove);
-      window.removeEventListener('touchend', handleDragEnd);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleDragMove);
-      window.removeEventListener('mouseup', handleDragEnd);
-      window.removeEventListener('touchmove', handleDragMove);
-      window.removeEventListener('touchend', handleDragEnd);
-    };
-  }, [isDragging]);
+    const percentages = myCards.map(card => calculateWinPercentage(card, currentPattern));
+    setCardWinPercentages(percentages);
+  }, []);
 
-  /* ------------------ FLOATING PANEL NUMBER INPUT ------------------ */
-  const handleNumberInput = (e) => {
-    e.preventDefault();
-    const num = parseInt(inputNumber);
-    if (num >= 1 && num <= 75) {
-      toggleNumber(num);
-      setRecentCalls(prev => [num, ...prev.filter(n => n !== num)].slice(0, 10));
-      setInputNumber("");
-    } else if (inputNumber !== "") {
-      alert("Please enter a number between 1 and 75");
-    }
-  };
+  useEffect(() => {
+    const allCards = [...myCards, ...generatedCards];
+    if (!allCards.length) return;
+    const newWinners = {};
+    PATTERNS.forEach(pattern => { newWinners[pattern.id] = []; });
+    allCards.forEach((card, i) => {
+      PATTERNS.forEach(pattern => {
+        if (checkPattern(card, pattern.id)) { newWinners[pattern.id].push(i); }
+      });
+    });
+    setWinners(newWinners);
+  }, [highlightNumbers, myCards, generatedCards]);
 
-  const quickCallNumber = (num) => {
-    toggleNumber(num);
-    setRecentCalls(prev => [num, ...prev.filter(n => n !== num)].slice(0, 10));
-  };
-
-  const clearRecentCalls = () => {
-    setRecentCalls([]);
-  };
-
-  /* ------------------ BALL RECORDS HANDLING ------------------ */
-  const predefinedRecords = {
-    "Record 1": [32, 24, 18, 12, 39, 26, 48, 17, 37, 64, 3, 68, 52, 40, 11, 28, 23, 69, 65, 4, 62, 34, 54, 56, 7, 47, 35, 61, 71, 43, 41, 70, 75, 6, 27, 22, 51, 31, 50, 29, 42, 38, 8, 14],
-    "Record 2": [47, 41, 32, 56, 60, 23, 53, 62, 4, 66, 18, 12, 22, 54, 30, 28, 25, 38, 26, 65, 6, 8, 70, 3, 57, 64, 69, 19, 15, 49, 50, 11, 35, 20, 21, 45, 59, 51, 36, 31, 24, 68, 67, 75]
-  };
-
-  const saveBallRecord = () => {
+  useEffect(() => {
     if (highlightNumbers.length === 0) {
-      alert("No balls have been called yet!");
+      setRoundFrequency([]);
+      setCurrentRound(1);
       return;
     }
-    if (!ballRecordName.trim()) {
-      alert("Please enter a name for this ball record");
-      return;
+    const frequencyMap = new Map();
+    for (let i = 1; i <= 75; i++) { frequencyMap.set(i, 0); }
+    highlightNumbers.forEach(num => { frequencyMap.set(num, (frequencyMap.get(num) || 0) + 1); });
+    const frequencyArray = Array.from(frequencyMap.entries())
+      .map(([number, count]) => ({ number, count }))
+      .sort((a, b) => a.number - b.number);
+    setRoundFrequency(frequencyArray);
+    const maxFrequency = Math.max(...frequencyArray.map(f => f.count), 0);
+    const newRound = maxFrequency + 1;
+    setCurrentRound(newRound);
+    if (autoAdvanceRound && highlightNumbers.length >= CONSTANTS.MAX_BALLS) {
+      const roundData = {
+        roundNumber: roundHistory.length + 1,
+        ballsCalled: [...highlightNumbers].sort((a, b) => a - b),
+        ballCount: highlightNumbers.length,
+        timestamp: new Date().toLocaleString(),
+        frequencyData: frequencyArray,
+        stats: {
+          totalBalls: highlightNumbers.length,
+          uniqueNumbers: frequencyArray.filter(f => f.count > 0).length,
+          mostFrequent: getMostFrequentNumber(frequencyArray),
+          leastFrequent: getLeastFrequentNumber(frequencyArray),
+          columnDistribution: getColumnDistribution(frequencyArray)
+        }
+      };
+      setRoundHistory(prev => [...prev, roundData]);
+      setHighlightNumbers([]);
+      setSelectedNumber(null);
+      alert(`🎯 Round ${roundData.roundNumber} complete! Starting Round ${roundData.roundNumber + 1}`);
     }
-    const newRecord = {
-      id: Date.now(),
-      name: ballRecordName,
-      balls: [...highlightNumbers],
-      count: highlightNumbers.length,
-      date: new Date().toLocaleString(),
-      sequence: highlightNumbers.join(", ")
+    const totalRounds = maxFrequency;
+    const uniqueNumbersCalled = frequencyArray.filter(f => f.count > 0).length;
+    const numbersWithFrequency = frequencyArray.filter(f => f.count > 0);
+    let mostFrequent = { number: 0, count: 0 };
+    let leastFrequent = { number: 0, count: Infinity };
+    numbersWithFrequency.forEach(item => {
+      if (item.count > mostFrequent.count) mostFrequent = item;
+      if (item.count < leastFrequent.count) leastFrequent = item;
+    });
+    setRoundStats({
+      totalRounds: totalRounds,
+      averageNumbersPerRound: highlightNumbers.length / (totalRounds || 1),
+      mostFrequentNumber: mostFrequent.number ? `${mostFrequent.number} (${mostFrequent.count}x)` : 'None',
+      leastFrequentNumber: leastFrequent.number ? `${leastFrequent.number} (${leastFrequent.count}x)` : 'None',
+      uniqueNumbers: uniqueNumbersCalled
+    });
+  }, [highlightNumbers, autoAdvanceRound, roundHistory.length]);
+
+  useEffect(() => {
+    const stats = {};
+    roundHistory.forEach(round => {
+      const roundFreq = new Array(75).fill(0);
+      round.ballsCalled.forEach(num => { roundFreq[num - 1]++; });
+      stats[round.roundNumber] = {
+        ...round.stats,
+        numbers: round.ballsCalled,
+        frequency: roundFreq
+      };
+    });
+    setRoundStatsByRound(stats);
+  }, [roundHistory]);
+
+  // ==================== UTILITY FUNCTIONS ====================
+  const formatSerial = useCallback((i, prefix = "CARD") => `#${prefix}-${String(i + 1).padStart(3, "0")}`, []);
+
+  const getColumnForNumber = useCallback((num) => {
+    if (num <= 15) return 'B';
+    if (num <= 30) return 'I';
+    if (num <= 45) return 'N';
+    if (num <= 60) return 'G';
+    return 'O';
+  }, []);
+
+  const getColumnColor = useCallback((col) => {
+    switch(col) {
+      case 'B': return '#4CAF50';
+      case 'I': return '#2196F3';
+      case 'N': return '#9C27B0';
+      case 'G': return '#FF9800';
+      case 'O': return '#F44336';
+      default: return '#666';
+    }
+  }, []);
+
+  const isPrime = useCallback((num) => {
+    if (num <= 1) return false;
+    if (num <= 3) return true;
+    if (num % 2 === 0 || num % 3 === 0) return false;
+    for (let i = 5; i * i <= num; i += 6) {
+      if (num % i === 0 || num % (i + 2) === 0) return false;
+    }
+    return true;
+  }, []);
+
+  const getMostFrequentNumber = useCallback((frequencyArray) => {
+    let maxCount = 0;
+    let mostFrequent = null;
+    frequencyArray.forEach(({ number, count }) => {
+      if (count > maxCount) { maxCount = count; mostFrequent = number; }
+    });
+    return { number: mostFrequent, count: maxCount };
+  }, []);
+
+  const getLeastFrequentNumber = useCallback((frequencyArray) => {
+    const calledNumbers = frequencyArray.filter(f => f.count > 0);
+    let minCount = Infinity;
+    let leastFrequent = null;
+    calledNumbers.forEach(({ number, count }) => {
+      if (count < minCount) { minCount = count; leastFrequent = number; }
+    });
+    return { number: leastFrequent, count: minCount };
+  }, []);
+
+  const getColumnDistribution = useCallback((frequencyArray) => {
+    const distribution = { B: 0, I: 0, N: 0, G: 0, O: 0 };
+    frequencyArray.forEach(({ number, count }) => {
+      if (count > 0) {
+        const col = getColumnForNumber(number);
+        distribution[col]++;
+      }
+    });
+    return distribution;
+  }, [getColumnForNumber]);
+
+  const getNumberFrequencyAcrossRounds = useCallback(() => {
+    const frequency = {};
+    for (let i = 1; i <= 75; i++) { frequency[i] = 0; }
+    highlightNumbers.forEach(num => { frequency[num] = (frequency[num] || 0) + 1; });
+    roundHistory.forEach(round => {
+      round.ballsCalled.forEach(num => { frequency[num] = (frequency[num] || 0) + 1; });
+    });
+    return frequency;
+  }, [highlightNumbers, roundHistory]);
+
+  // ==================== CARD VALIDATION ====================
+  const validateCard = useCallback((card) => {
+    const errors = {};
+    const columnRanges = CONSTANTS.COLUMN_RANGES;
+    const columnIndices = { B: 0, I: 1, N: 2, G: 3, O: 4 };
+    Object.entries(columnIndices).forEach(([colName, colIndex]) => {
+      const [min, max] = columnRanges[colName];
+      const columnNumbers = card[colIndex];
+      if (columnNumbers.length !== 5) {
+        errors[`col_${colIndex}`] = `Column ${colName} must have exactly 5 numbers`;
+        return;
+      }
+      columnNumbers.forEach((num, rowIndex) => {
+        if (num === "FREE" || num === "★") {
+          if (colIndex === 2 && rowIndex === 2) {
+          } else if (num === "FREE") {
+            errors[`cell_${colIndex}_${rowIndex}`] = `FREE space only allowed in center of N column`;
+          }
+          return;
+        }
+        const numValue = parseInt(num);
+        if (isNaN(numValue)) {
+          errors[`cell_${colIndex}_${rowIndex}`] = `Invalid number: ${num}`;
+          return;
+        }
+        if (numValue < min || numValue > max) {
+          errors[`cell_${colIndex}_${rowIndex}`] = `${numValue} is not in column ${colName} range (${min}-${max})`;
+        }
+        const duplicateIndex = columnNumbers.findIndex((n, idx) => idx !== rowIndex && parseInt(n) === numValue);
+        if (duplicateIndex !== -1) {
+          errors[`cell_${colIndex}_${rowIndex}`] = `Duplicate number ${numValue} in column ${colName}`;
+        }
+      });
+    });
+    const allNumbers = [];
+    for (let c = 0; c < 5; c++) {
+      for (let r = 0; r < 5; r++) {
+        const val = card[c][r];
+        if (val !== "FREE" && val !== "★") {
+          const num = parseInt(val);
+          if (!isNaN(num)) {
+            if (allNumbers.includes(num)) {
+              errors[`global_${num}`] = `Number ${num} appears multiple times on the card`;
+            }
+            allNumbers.push(num);
+          }
+        }
+      }
+    }
+    return errors;
+  }, []);
+
+  // ==================== SAFE TOGGLE FUNCTIONS ====================
+  const toggleNumberSafe = useCallback((num) => {
+    setHighlightNumbers(prev => {
+      if (prev.includes(num)) { return prev.filter(n => n !== num); }
+      if (prev.length >= CONSTANTS.MAX_BALLS) {
+        alert(`Maximum ${CONSTANTS.MAX_BALLS} balls reached for this round. Start a new round to continue.`);
+        return prev;
+      }
+      return [...prev, num].sort((a, b) => a - b);
+    });
+  }, [CONSTANTS.MAX_BALLS]);
+
+  const toggleFavoriteNumberFixed = useCallback((num) => {
+    setFavoriteNumbersList(prev => {
+      const newList = prev.includes(num)
+        ? prev.filter(n => n !== num)
+        : [...prev, num].sort((a, b) => a - b);
+      setFavoriteNumbers(newList.join(", "));
+      if (newList.length > 0) setShowFavoriteStats(true);
+      if (newList.length === 0) setShowFavoriteStats(false);
+      return newList;
+    });
+  }, []);
+
+  // ==================== PATTERN CHECKING FUNCTIONS ====================
+  const checkBlackout = useCallback((card) => {
+    return card.flat().filter(n => n !== "FREE" && n !== "★").every(n => highlightNumbers.includes(n));
+  }, [highlightNumbers]);
+
+  const checkTPattern = useCallback((card) => {
+    const topRow = card.map(col => col[0]);
+    const middleCol = card[2].filter(n => n !== "FREE" && n !== "★");
+    return [...topRow, ...middleCol].every(n => highlightNumbers.includes(n));
+  }, [highlightNumbers]);
+
+  const checkXPattern = useCallback((card) => {
+    let diag1 = true, diag2 = true;
+    for (let i = 0; i < 5; i++) {
+      const a = card[i][i];
+      const b = card[i][4 - i];
+      if (a !== "FREE" && a !== "★" && !highlightNumbers.includes(a)) diag1 = false;
+      if (b !== "FREE" && b !== "★" && !highlightNumbers.includes(b)) diag2 = false;
+    }
+    return diag1 && diag2;
+  }, [highlightNumbers]);
+
+  const checkLines = useCallback((card, requiredLines) => {
+    let rows = 0;
+    for (let r = 0; r < 5; r++) {
+      let complete = true;
+      for (let c = 0; c < 5; c++) {
+        const num = card[c][r];
+        if (num !== "FREE" && num !== "★" && !highlightNumbers.includes(num)) { complete = false; break; }
+      }
+      if (complete) rows++;
+    }
+    return rows >= requiredLines;
+  }, [highlightNumbers]);
+
+  const checkFourCorners = useCallback((card) => {
+    const corners = [card[0][0], card[4][0], card[0][4], card[4][4]];
+    return corners.every(num => num !== "FREE" && num !== "★" && highlightNumbers.includes(num));
+  }, [highlightNumbers]);
+
+  const checkSideToSide = useCallback((card) => {
+    let columns = 0;
+    for (let c = 0; c < 5; c++) {
+      if (c === 2) continue;
+      let complete = true;
+      for (let r = 0; r < 5; r++) {
+        const num = card[c][r];
+        if (num !== "FREE" && num !== "★" && !highlightNumbers.includes(num)) { complete = false; break; }
+      }
+      if (complete) columns++;
+    }
+    return columns >= 4;
+  }, [highlightNumbers]);
+
+  const checkEmptyCross = useCallback((card) => {
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const num = card[c][r];
+        if (num === "FREE" || num === "★") continue;
+        if (r === 2 || c === 2) continue;
+        if (!highlightNumbers.includes(num)) return false;
+      }
+    }
+    return true;
+  }, [highlightNumbers]);
+
+  const checkPattern = useCallback((card, patternId) => {
+    switch(patternId) {
+      case "blackout": return checkBlackout(card);
+      case "t": return checkTPattern(card);
+      case "x": return checkXPattern(card);
+      case "twoLines": return checkLines(card, 2);
+      case "threeLines": return checkLines(card, 3);
+      case "fourLines": return checkLines(card, 4);
+      case "fourCorners": return checkFourCorners(card);
+      case "sideToSide": return checkSideToSide(card);
+      case "emptyCross": return checkEmptyCross(card);
+      default: return false;
+    }
+  }, [checkBlackout, checkTPattern, checkXPattern, checkLines, checkFourCorners, checkSideToSide, checkEmptyCross]);
+
+  const checkAllPatterns = useCallback((card) => {
+    return PATTERNS.filter(pattern => checkPattern(card, pattern.id))
+      .map(pattern => ({ id: pattern.id, name: pattern.label, icon: pattern.icon }));
+  }, [checkPattern]);
+
+  const calculateWinPercentage = useCallback((card, patternId) => {
+    const pattern = PATTERNS.find(p => p.id === patternId);
+    const numbersNeeded = pattern?.numbersNeeded || 24;
+    const cardNumbers = card.flat().filter(n => n !== "FREE" && n !== "★");
+    const matchedNumbers = cardNumbers.filter(n => highlightNumbers.includes(n)).length;
+    return Math.min(100, Math.max(0, (matchedNumbers / numbersNeeded) * 100));
+  }, [highlightNumbers]);
+
+  const getCardScore = useCallback((card) => {
+    return card.flat().filter(n => n !== "FREE" && n !== "★" && !highlightNumbers.includes(n)).length;
+  }, [highlightNumbers]);
+
+  const startNewRound = useCallback(() => {
+    if (highlightNumbers.length === 0) { alert("No balls drawn in current round!"); return; }
+    const frequencyMap = new Map();
+    for (let i = 1; i <= 75; i++) { frequencyMap.set(i, 0); }
+    highlightNumbers.forEach(num => { frequencyMap.set(num, (frequencyMap.get(num) || 0) + 1); });
+    const frequencyArray = Array.from(frequencyMap.entries())
+      .map(([number, count]) => ({ number, count }))
+      .sort((a, b) => a.number - b.number);
+    const roundData = {
+      roundNumber: roundHistory.length + 1,
+      ballsCalled: [...highlightNumbers].sort((a, b) => a - b),
+      ballCount: highlightNumbers.length,
+      timestamp: new Date().toLocaleString(),
+      frequencyData: frequencyArray,
+      stats: {
+        totalBalls: highlightNumbers.length,
+        uniqueNumbers: frequencyArray.filter(f => f.count > 0).length,
+        mostFrequent: getMostFrequentNumber(frequencyArray),
+        leastFrequent: getLeastFrequentNumber(frequencyArray),
+        columnDistribution: getColumnDistribution(frequencyArray)
+      }
     };
-    setBallRecords(prev => [...prev, newRecord]);
-    setBallRecordName("");
-    alert(`Ball record "${ballRecordName}" saved successfully!`);
-  };
+    setRoundHistory(prev => [...prev, roundData]);
+    setHighlightNumbers([]);
+    setSelectedNumber(null);
+    alert(`✅ Round ${roundData.roundNumber} saved to history!`);
+  }, [highlightNumbers, roundHistory.length, getMostFrequentNumber, getLeastFrequentNumber, getColumnDistribution]);
 
-  const loadBallRecord = (record) => {
-    setHighlightNumbers([...record.balls]);
-    setSelectedRecord(record);
-    setShowBallRecords(false);
-    alert(`Loaded "${record.name}" with ${record.count} balls`);
-  };
-
-  const deleteBallRecord = (recordId) => {
-    if (window.confirm("Are you sure you want to delete this ball record?")) {
-      setBallRecords(prev => prev.filter(record => record.id !== recordId));
+  const clearRoundHistory = useCallback(() => {
+    if (window.confirm("Are you sure you want to clear all round history?")) {
+      setRoundHistory([]);
+      setSelectedRound(null);
     }
-  };
+  }, []);
 
-  const loadPredefinedRecord = (recordName, balls) => {
-    setHighlightNumbers([...balls]);
-    setSelectedRecord({ name: recordName, balls: balls, count: balls.length });
-    setShowBallRecords(false);
-    alert(`Loaded "${recordName}" with ${balls.length} balls`);
-  };
-
-  const exportBallRecords = () => {
-    const dataStr = JSON.stringify(ballRecords, null, 2);
+  const exportRoundHistory = useCallback(() => {
+    const dataStr = JSON.stringify(roundHistory, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `ball-records-${new Date().toISOString().split('T')[0]}.json`;
+    const exportFileDefaultName = `round-history-${new Date().toISOString().split('T')[0]}.json`;
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
-  };
+  }, [roundHistory]);
 
-  const importBallRecords = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(e.target.result);
-        if (Array.isArray(imported)) {
-          setBallRecords(prev => [...prev, ...imported]);
-          alert(`Imported ${imported.length} ball records successfully!`);
-        } else {
-          alert("Invalid file format");
-        }
-      } catch (error) {
-        alert("Error importing file");
-      }
+  const getRoundComparison = useCallback(() => {
+    if (roundHistory.length < 2) return null;
+    const comparison = {
+      totalRounds: roundHistory.length,
+      averageBallsPerRound: roundHistory.reduce((acc, r) => acc + r.ballCount, 0) / roundHistory.length,
+      mostBallsRound: roundHistory.reduce((max, r) => r.ballCount > max.ballCount ? r : max, roundHistory[0]),
+      leastBallsRound: roundHistory.reduce((min, r) => r.ballCount < min.ballCount ? r : min, roundHistory[0]),
+      mostUniqueRound: roundHistory.reduce((max, r) => r.stats.uniqueNumbers > max.stats.uniqueNumbers ? r : max, roundHistory[0]),
+      leastUniqueRound: roundHistory.reduce((min, r) => r.stats.uniqueNumbers < min.stats.uniqueNumbers ? r : min, roundHistory[0]),
+      mostFrequentNumbers: {},
+      columnAverages: { B: 0, I: 0, N: 0, G: 0, O: 0 }
     };
-    reader.readAsText(file);
-  };
+    roundHistory.forEach(round => {
+      Object.entries(round.stats.columnDistribution).forEach(([col, count]) => {
+        comparison.columnAverages[col] += count;
+      });
+    });
+    Object.keys(comparison.columnAverages).forEach(col => {
+      comparison.columnAverages[col] = Math.round(comparison.columnAverages[col] / roundHistory.length);
+    });
+    const allNumbersFrequency = {};
+    roundHistory.forEach(round => {
+      round.ballsCalled.forEach(num => {
+        allNumbersFrequency[num] = (allNumbersFrequency[num] || 0) + 1;
+      });
+    });
+    comparison.mostFrequentNumbers = Object.entries(allNumbersFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([num, count]) => ({ number: parseInt(num), count }));
+    return comparison;
+  }, [roundHistory]);
 
-  const clearBallRecord = () => {
-    if (window.confirm("Clear all called balls?")) {
-      setHighlightNumbers([]);
-      setSelectedRecord(null);
-      setRecentCalls([]);
-    }
-  };
+  const getCardLabel = useCallback((cardIndex, section = "myCards") => {
+    const key = `${section}-${cardIndex}`;
+    return cardLabels[key] || {
+      name: section === "myCards" ? `My Card ${formatSerial(cardIndex, "MY")}` : `Generated Card ${formatSerial(cardIndex, "GEN")}`,
+      emoji: section === "myCards" ? "🎯" : "🎴",
+      notes: ""
+    };
+  }, [cardLabels, formatSerial]);
 
-  /* ------------------ FAVORITE NUMBERS HANDLING ------------------ */
-  const parseFavoriteNumbers = () => {
+  const updateCardLabel = useCallback((cardIndex, section, labelData) => {
+    const key = `${section}-${cardIndex}`;
+    setCardLabels(prev => ({ ...prev, [key]: { ...prev[key], ...labelData } }));
+    setShowLabelModal(false);
+    setLabelCardIndex(null);
+  }, []);
+
+  const startEditLabel = useCallback((cardIndex, section, e) => {
+    e.stopPropagation();
+    setLabelCardIndex(cardIndex);
+    setLabelCardSection(section);
+    setLabelInput(getCardLabel(cardIndex, section).name);
+    setShowLabelModal(true);
+  }, [getCardLabel]);
+
+  const parseFavoriteNumbers = useCallback(() => {
     const numbers = favoriteNumbers
       .split(/[,\s]+/)
       .map(n => parseInt(n.trim()))
@@ -262,58 +580,58 @@ function Pattern({ goBack }) {
     setShowFavoriteStats(true);
     setFavoriteNumbers(uniqueNumbers.join(", "));
     return uniqueNumbers;
-  };
+  }, [favoriteNumbers]);
 
-  const toggleFavoriteNumber = (num) => {
-    let newList;
-    if (favoriteNumbersList.includes(num)) {
-      newList = favoriteNumbersList.filter(n => n !== num);
-    } else {
-      newList = [...favoriteNumbersList, num].sort((a, b) => a - b);
-    }
-    setFavoriteNumbersList(newList);
-    setFavoriteNumbers(newList.join(", "));
-    if (newList.length > 0) setShowFavoriteStats(true);
-  };
-
-  const addRangeFavorite = (start, end) => {
+  const addRangeFavorite = useCallback((start, end) => {
     const range = Array.from({ length: end - start + 1 }, (_, i) => start + i);
-    const newList = [...new Set([...favoriteNumbersList, ...range])].sort((a, b) => a - b);
-    setFavoriteNumbersList(newList);
-    setFavoriteNumbers(newList.join(", "));
-    setShowFavoriteStats(true);
-  };
+    setFavoriteNumbersList(prev => {
+      const newList = [...new Set([...prev, ...range])].sort((a, b) => a - b);
+      setFavoriteNumbers(newList.join(", "));
+      setShowFavoriteStats(true);
+      return newList;
+    });
+  }, []);
 
-  const clearFavorites = () => {
+  const clearFavorites = useCallback(() => {
     if (window.confirm("Clear all favorite numbers?")) {
       setFavoriteNumbersList([]);
       setFavoriteNumbers("");
       setShowFavoriteStats(false);
     }
-  };
+  }, []);
 
-  const selectAllInColumn = (column) => {
-    let start, end;
-    switch(column) {
-      case 'B': start = 1; end = 15; break;
-      case 'I': start = 16; end = 30; break;
-      case 'N': start = 31; end = 45; break;
-      case 'G': start = 46; end = 60; break;
-      case 'O': start = 61; end = 75; break;
-      default: return;
-    }
+  const selectAllInColumn = useCallback((column) => {
+    const [start, end] = CONSTANTS.COLUMN_RANGES[column];
     addRangeFavorite(start, end);
-  };
+  }, [addRangeFavorite]);
 
-  const saveCurrentList = () => {
-    if (favoriteNumbersList.length === 0) {
-      alert("No favorite numbers to save!");
-      return;
-    }
-    if (!currentListName.trim()) {
-      alert("Please enter a name for this list");
-      return;
-    }
+  const getFavoriteStats = useCallback(() => {
+    const stats = { total: favoriteNumbersList.length, byColumn: { B: 0, I: 0, N: 0, G: 0, O: 0 }, even: 0, odd: 0, prime: 0 };
+    favoriteNumbersList.forEach(num => {
+      const col = getColumnForNumber(num);
+      stats.byColumn[col]++;
+      if (num % 2 === 0) stats.even++;
+      else stats.odd++;
+      if (isPrime(num)) stats.prime++;
+    });
+    return stats;
+  }, [favoriteNumbersList, getColumnForNumber, isPrime]);
+
+  const getFilteredNumbers = useCallback(() => {
+    if (!searchTerm) return Array.from({ length: 75 }, (_, i) => i + 1);
+    const term = searchTerm.toLowerCase();
+    return Array.from({ length: 75 }, (_, i) => i + 1).filter(num => {
+      return num.toString().includes(term) ||
+        getColumnForNumber(num).toLowerCase().includes(term) ||
+        (term === 'even' && num % 2 === 0) ||
+        (term === 'odd' && num % 2 === 1) ||
+        (term === 'prime' && isPrime(num));
+    });
+  }, [searchTerm, getColumnForNumber, isPrime]);
+
+  const saveCurrentList = useCallback(() => {
+    if (favoriteNumbersList.length === 0) { alert("No favorite numbers to save!"); return; }
+    if (!currentListName.trim()) { alert("Please enter a name for this list"); return; }
     const newList = {
       id: Date.now(),
       name: currentListName,
@@ -324,29 +642,27 @@ function Pattern({ goBack }) {
     setFavoriteLists(prev => [...prev, newList]);
     setCurrentListName("");
     alert(`List "${currentListName}" saved successfully!`);
-  };
+  }, [favoriteNumbersList, currentListName]);
 
-  const loadFavoriteList = (list) => {
+  const loadFavoriteList = useCallback((list) => {
     setFavoriteNumbersList(list.numbers);
     setFavoriteNumbers(list.numbers.join(", "));
     setShowFavoriteStats(true);
     setShowFavoriteLists(false);
-  };
+  }, []);
 
-  const deleteFavoriteList = (listId) => {
+  const deleteFavoriteList = useCallback((listId) => {
     if (window.confirm("Are you sure you want to delete this list?")) {
       setFavoriteLists(prev => prev.filter(list => list.id !== listId));
     }
-  };
+  }, []);
 
-  const updateListName = (listId, newName) => {
-    setFavoriteLists(prev => prev.map(list => 
-      list.id === listId ? { ...list, name: newName } : list
-    ));
+  const updateListName = useCallback((listId, newName) => {
+    setFavoriteLists(prev => prev.map(list => list.id === listId ? { ...list, name: newName } : list));
     setEditingListName(null);
-  };
+  }, []);
 
-  const exportFavoriteLists = () => {
+  const exportFavoriteLists = useCallback(() => {
     const dataStr = JSON.stringify(favoriteLists, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     const exportFileDefaultName = `favorite-lists-${new Date().toISOString().split('T')[0]}.json`;
@@ -354,9 +670,9 @@ function Pattern({ goBack }) {
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
-  };
+  }, [favoriteLists]);
 
-  const importFavoriteLists = (event) => {
+  const importFavoriteLists = useCallback((event) => {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -366,202 +682,31 @@ function Pattern({ goBack }) {
         if (Array.isArray(imported)) {
           setFavoriteLists(prev => [...prev, ...imported]);
           alert(`Imported ${imported.length} lists successfully!`);
-        } else {
-          alert("Invalid file format");
-        }
-      } catch (error) {
-        alert("Error importing file");
-      }
+        } else { alert("Invalid file format"); }
+      } catch (error) { alert("Error importing file"); }
     };
     reader.readAsText(file);
-  };
+  }, []);
 
-  const getPredefinedLists = () => {
+  const getPredefinedLists = useCallback(() => {
     return [
-      { id: 'popular', name: '🎲 Most Popular Numbers', numbers: [7, 11, 21, 34, 42, 50, 67, 69, 75], description: 'Commonly chosen numbers' },
-      { id: 'corners', name: '⬛ Corner Numbers', numbers: [1, 15, 16, 30, 31, 45, 46, 60, 61, 75], description: 'Numbers at the edges' },
-      { id: 'center', name: '🎯 Center Column', numbers: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45], description: 'All N column numbers' },
-      { id: 'lucky', name: '🍀 Lucky Sevens', numbers: [7, 17, 27, 37, 47, 57, 67], description: 'Numbers ending with 7' },
-      { id: 'decades', name: '📊 Decade Numbers', numbers: [10, 20, 30, 40, 50, 60, 70], description: 'Round numbers by decade' },
-      { id: 'bingo', name: '🔤 B-I-N-G-O', numbers: [2, 9, 16, 23, 30, 37, 44, 51, 58, 65, 72], description: 'Numbers that spell BINGO' }
+      { id: 'LUCKY_48', name: 'LUCKY 48 NUMBER', numbers: [1, 2, 4, 6, 7, 9, 10, 11, 13, 15, 21, 22, 23, 25, 26, 28, 29, 31, 33, 34, 38, 40, 41, 44, 45, 46, 48, 52, 53, 56, 57, 59, 60, 61, 62, 63, 64, 66, 68, 70, 72, 74], description: 'Numbers that spell BINGO' },
+      { id: 'JAE_LUCKY', name: 'JAE LUCKY 48 BALLS', numbers: [1, 2, 4, 6, 7, 9, 10, 11, 13, 15, 21, 22, 23, 25, 26, 28, 29, 31, 33, 34, 38, 40, 41, 44, 45, 46, 48, 52, 53, 56, 57, 59, 60, 61, 62, 63, 64, 66, 68, 70, 72, 74], description: 'Numbers that spell BINGO' },
+      { id: 'JUANNA_LUCKY', name: 'JUANNA LUCKY 48 NUMBER', numbers: [1, 2, 4, 6, 7, 9, 11, 12, 15, 17, 18, 19, 20, 25, 28, 29, 32, 33, 34, 35, 38, 39, 40, 41, 42, 45, 47, 51, 53, 54, 55, 56, 58, 59, 60, 62, 65, 67, 68, 69, 71, 72, 74], description: 'Numbers that spell BINGO' },
+      { id: 'CARLA_LUCKY', name: 'CARLA LUCKY 48 NUMBER', numbers: [1, 2, 3, 5, 6, 9, 10, 11, 19, 20, 21, 22, 23, 24, 26, 32, 33, 39, 41, 43, 44, 48, 49, 51, 53, 54, 56, 57, 59, 61, 62, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75], description: 'Numbers that spell BINGO' },
+      { id: 'CRISS_LUCKY', name: 'CRISS LUCKY 48 NUMBER', numbers: [3, 4, 5, 8, 10, 11, 12, 13, 15, 17, 18, 20, 21, 24, 25, 28, 29, 31, 34, 36, 37, 39, 44, 45, 47, 49, 50, 51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 63, 65, 67, 68, 69, 71, 72, 73, 75], description: 'Numbers that spell BINGO' },
+      { id: 'BIMBY_LUCKY', name: 'BIMBY LUCKY 48 NUMBER', numbers: [1, 3, 4, 6, 7, 10, 11, 12, 13, 17, 18, 21, 22, 25, 26, 27, 28, 30, 31, 33, 34, 38, 39, 42, 43, 45, 46, 47, 49, 50, 52, 58, 59, 64, 65, 66, 69, 70, 71, 72, 73], description: 'Numbers that spell BINGO' }
     ];
-  };
+  }, []);
 
-  const getFilteredNumbers = () => {
-    if (!searchTerm) return Array.from({ length: 75 }, (_, i) => i + 1);
-    const term = searchTerm.toLowerCase();
-    return Array.from({ length: 75 }, (_, i) => i + 1).filter(num => {
-      return num.toString().includes(term) || 
-             getColumnForNumber(num).toLowerCase().includes(term) ||
-             (term === 'even' && num % 2 === 0) ||
-             (term === 'odd' && num % 2 === 1) ||
-             (term === 'prime' && isPrime(num));
-    });
-  };
+  const loadPredefinedList = useCallback((list) => {
+    setFavoriteNumbersList(list.numbers);
+    setFavoriteNumbers(list.numbers.join(", "));
+    setShowFavoriteStats(true);
+    setShowFavoriteLists(false);
+  }, []);
 
-  const getFavoriteStats = () => {
-    const stats = { total: favoriteNumbersList.length, byColumn: { B: 0, I: 0, N: 0, G: 0, O: 0 }, even: 0, odd: 0, prime: 0 };
-    favoriteNumbersList.forEach(num => {
-      const col = getColumnForNumber(num);
-      stats.byColumn[col]++;
-      if (num % 2 === 0) stats.even++;
-      else stats.odd++;
-      if (isPrime(num)) stats.prime++;
-    });
-    return stats;
-  };
-
-  /* ------------------ BINGO RESULTS RECORDING ------------------ */
-  const recordBingoResult = () => {
-    if (cards.length === 0) {
-      alert("Please generate cards first!");
-      return;
-    }
-    const patternWinners = winners[currentPattern] || [];
-    if (patternWinners.length === 0) {
-      alert(`No winners yet for the ${currentPattern} pattern!`);
-      return;
-    }
-    const result = {
-      id: Date.now(),
-      timestamp: new Date().toLocaleString(),
-      pattern: currentPattern,
-      patternIcon: getPatternIcon(currentPattern),
-      patternName: getPatternName(currentPattern),
-      ballsDrawn: [...highlightNumbers].sort((a, b) => a - b),
-      ballsDrawnCount: highlightNumbers.length,
-      totalCards: cards.length,
-      winners: patternWinners.map(idx => ({
-        cardIndex: idx,
-        serial: formatSerial(idx),
-        card: cards[idx],
-        winPercentage: cardWinPercentages[idx],
-        winningPatterns: checkAllPatterns(cards[idx])
-      })),
-      winnerCount: patternWinners.length,
-      gameDuration: calculateGameDuration(),
-      notes: ""
-    };
-    setGameResults(prev => [...prev, result]);
-    setGameHistory(prev => [{
-      id: result.id,
-      timestamp: result.timestamp,
-      pattern: result.pattern,
-      patternIcon: result.patternIcon,
-      winnerCount: result.winnerCount,
-      ballsDrawn: result.ballsDrawnCount
-    }, ...prev]);
-    setCurrentGameResult(result);
-    setShowResults(true);
-  };
-
-  const getPatternIcon = (patternId) => {
-    const icons = { blackout: "⬛", t: "📐", x: "❌", twoLines: "📏", threeLines: "📊", fourLines: "📈", fourCorners: "🔲", sideToSide: "⬆️⬇️", emptyCross: "✖️" };
-    return icons[patternId] || "🎯";
-  };
-
-  const getPatternName = (patternId) => {
-    const names = { blackout: "Blackout", t: "T Pattern", x: "X Pattern", twoLines: "2 Lines", threeLines: "3 Lines", fourLines: "4 Lines", fourCorners: "4 Corners", sideToSide: "Side to Side", emptyCross: "Empty Cross" };
-    return names[patternId] || patternId;
-  };
-
-  const calculateGameDuration = () => "N/A";
-
-  const saveGameResult = (resultId, notes) => {
-    setGameResults(prev => prev.map(result => result.id === resultId ? { ...result, notes, saved: true } : result));
-    alert("Game result saved successfully!");
-  };
-
-  const deleteGameResult = (resultId) => {
-    if (window.confirm("Are you sure you want to delete this game result?")) {
-      setGameResults(prev => prev.filter(r => r.id !== resultId));
-      setGameHistory(prev => prev.filter(h => h.id !== resultId));
-      if (currentGameResult?.id === resultId) {
-        setCurrentGameResult(null);
-        setShowResults(false);
-      }
-      alert("Game result deleted.");
-    }
-  };
-
-  const exportResults = () => {
-    const dataStr = JSON.stringify(gameResults, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `bingo-results-${new Date().toISOString().split('T')[0]}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
-
-  const calculateStatistics = () => {
-    if (gameResults.length === 0) return null;
-    const stats = {
-      totalGames: gameResults.length,
-      averageBallsToWin: Math.round(gameResults.reduce((acc, r) => acc + r.ballsDrawnCount, 0) / gameResults.length),
-      mostWinningPattern: getMostFrequentPattern(),
-      patternStats: {},
-      averageWinnersPerGame: (gameResults.reduce((acc, r) => acc + r.winnerCount, 0) / gameResults.length).toFixed(1)
-    };
-    gameResults.forEach(result => {
-      if (!stats.patternStats[result.pattern]) {
-        stats.patternStats[result.pattern] = { count: 0, totalWinners: 0, icon: result.patternIcon, name: result.patternName };
-      }
-      stats.patternStats[result.pattern].count++;
-      stats.patternStats[result.pattern].totalWinners += result.winnerCount;
-    });
-    return stats;
-  };
-
-  const getMostFrequentPattern = () => {
-    const patternCounts = {};
-    gameResults.forEach(r => patternCounts[r.pattern] = (patternCounts[r.pattern] || 0) + 1);
-    let maxCount = 0, mostFrequent = null;
-    Object.entries(patternCounts).forEach(([pattern, count]) => {
-      if (count > maxCount) { maxCount = count; mostFrequent = pattern; }
-    });
-    return mostFrequent ? getPatternName(mostFrequent) : "N/A";
-  };
-
-  /* ------------------ WINNING PERCENTAGE CALCULATION ------------------ */
-  const calculateWinPercentage = (card, pattern) => {
-    const totalNumbers = card.flat().filter(n => n !== "FREE").length;
-    let numbersNeeded = 0;
-    switch(pattern) {
-      case "blackout": numbersNeeded = totalNumbers; break;
-      case "t": numbersNeeded = 9; break;
-      case "x": numbersNeeded = 9; break;
-      case "twoLines": numbersNeeded = 10; break;
-      case "threeLines": numbersNeeded = 15; break;
-      case "fourLines": numbersNeeded = 20; break;
-      case "fourCorners": numbersNeeded = 4; break;
-      case "sideToSide": numbersNeeded = 20; break;
-      case "emptyCross": numbersNeeded = 16; break;
-      default: numbersNeeded = totalNumbers;
-    }
-    const cardNumbers = card.flat().filter(n => n !== "FREE");
-    const matchedNumbers = cardNumbers.filter(n => highlightNumbers.includes(n)).length;
-    const percentage = (matchedNumbers / numbersNeeded) * 100;
-    return Math.min(100, Math.max(0, percentage));
-  };
-
-  /* ------------------ CHECK ALL PATTERNS FOR A CARD ------------------ */
-  const checkAllPatterns = (card) => {
-    const patterns = [];
-    if (checkBlackout(card)) patterns.push({ id: "blackout", name: "Blackout", icon: "⬛" });
-    if (checkTPattern(card)) patterns.push({ id: "t", name: "T Pattern", icon: "📐" });
-    if (checkXPattern(card)) patterns.push({ id: "x", name: "X Pattern", icon: "❌" });
-    if (checkTwoLines(card)) patterns.push({ id: "twoLines", name: "2 Lines", icon: "📏" });
-    if (checkThreeLines(card)) patterns.push({ id: "threeLines", name: "3 Lines", icon: "📊" });
-    if (checkFourLines(card)) patterns.push({ id: "fourLines", name: "4 Lines", icon: "📈" });
-    if (checkFourCorners(card)) patterns.push({ id: "fourCorners", name: "4 Corners", icon: "🔲" });
-    if (checkSideToSide(card)) patterns.push({ id: "sideToSide", name: "Side to Side", icon: "⬆️⬇️" });
-    if (checkEmptyCross(card)) patterns.push({ id: "emptyCross", name: "Empty Cross", icon: "✖️" });
-    return patterns;
-  };
-
-  /* ------------------ CARD GENERATION ------------------ */
-  const generateCardWithFavoriteNumbers = (useFavorites = true) => {
+  const generateCardWithFavoriteNumbers = useCallback((useFavorites = true) => {
     const card = [];
     const usedNumbers = new Set();
     const favorites = useFavorites && favoriteNumbersList.length > 0 ? favoriteNumbersList : [];
@@ -586,7 +731,7 @@ function Pattern({ goBack }) {
           const randomIndex = Math.floor(Math.random() * favoritesInCol.length);
           num = favoritesInCol[randomIndex];
           favoritesInCol.splice(randomIndex, 1);
-        } else break;
+        } else { break; }
         colNumbers.push(num);
         usedNumbers.add(num);
       }
@@ -595,9 +740,9 @@ function Pattern({ goBack }) {
     }
     card[2][2] = "FREE";
     return card;
-  };
+  }, [favoriteNumbersList, favoriteBias]);
 
-  const generateCardWithTargetPercentage = (targetPercentage, useFavorites = true) => {
+  const generateCardWithTargetPercentage = useCallback((targetPercentage, useFavorites = true) => {
     let bestCard = null;
     let bestPercentage = 0;
     const attempts = 100;
@@ -608,15 +753,16 @@ function Pattern({ goBack }) {
         bestCard = card;
         bestPercentage = percentage;
       }
-      if (Math.abs(percentage - targetPercentage) <= 5) break;
+      if (Math.abs(percentage - targetPercentage) <= 5) { break; }
     }
     return bestCard || generateCardWithFavoriteNumbers(useFavorites);
-  };
+  }, [generateCardWithFavoriteNumbers, calculateWinPercentage, currentPattern]);
 
-  const handleGenerate = async () => {
+  // ==================== UPDATED handleGenerate with avg capped at 24 ====================
+  const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
-    const count = Math.min(Math.max(numCardsInput, 1), maxCards);
-    if (favoriteNumbers.trim() !== "") parseFavoriteNumbers();
+    const count = Math.min(Math.max(numCardsInput, 1), CONSTANTS.MAX_CARDS);
+    if (favoriteNumbers.trim() !== "") { parseFavoriteNumbers(); }
     setTimeout(() => {
       const newCards = [];
       const percentages = [];
@@ -626,835 +772,1516 @@ function Pattern({ goBack }) {
         const card = generateCardWithTargetPercentage(targetWinPercentage, useFavorites);
         newCards.push(card);
         if (favoriteNumbersList.length > 0) {
-          const cardNumbers = card.flat().filter(n => n !== "FREE");
+          const cardNumbers = card.flat().filter(n => n !== "FREE" && n !== "★");
           const favoriteCount = cardNumbers.filter(n => favoriteNumbersList.includes(n)).length;
-          favoriteStats.totalFavoriteNumbers += favoriteCount;
+          favoriteStats.totalFavoriteNumbers += Math.min(favoriteCount + 1, 24);
           if (favoriteCount > 0) favoriteStats.cardsWithFavorites++;
         }
-        const percentage = calculateWinPercentage(card, currentPattern);
-        percentages.push(percentage);
+        percentages.push(calculateWinPercentage(card, currentPattern));
       }
-      setCards(newCards);
-      setCardWinPercentages(percentages);
-      setHighlightNumbers([]);
+      setGeneratedCards(prev => [...prev, ...newCards]);
+      setCardWinPercentages(prev => [...prev, ...percentages]);
       setFlippedCards({});
       setPinnedCards({});
-      setWinners({ blackout: [], t: [], x: [], twoLines: [], threeLines: [], fourLines: [], fourCorners: [], sideToSide: [], emptyCross: [] });
       if (favoriteNumbersList.length > 0) {
-        alert(`✅ Generated ${count} cards with favorite numbers!\n📊 Stats:\n- Favorite numbers: ${favoriteNumbersList.join(", ")}\n- Average favorites per card: ${(favoriteStats.totalFavoriteNumbers / count).toFixed(1)}\n- Cards with at least one favorite: ${favoriteStats.cardsWithFavorites}/${count}`);
+        alert(
+          `✅ Generated ${count} cards with favorite numbers!\n` +
+          `📊 Stats:\n` +
+          `- Favorite numbers: ${favoriteNumbersList.join(", ")}\n` +
+          `- Average favorites per card: ${(favoriteStats.totalFavoriteNumbers / count).toFixed(1)}/24\n` +
+          `- Cards with at least one favorite: ${favoriteStats.cardsWithFavorites}/${count}`
+        );
       }
       setIsGenerating(false);
     }, 500);
-  };
+  }, [numCardsInput, favoriteNumbers, parseFavoriteNumbers, favoriteNumbersList, generateCardWithTargetPercentage, targetWinPercentage, currentPattern, calculateWinPercentage]);
 
-  const handleNewRound = () => {
+  const selectRandomBallSafe = useCallback(() => {
+    const available = Array.from({ length: 75 }, (_, i) => i + 1).filter(n => !highlightNumbers.includes(n));
+    if (available.length === 0) { alert("All balls have been drawn in this round!"); return; }
+    const randomBall = available[Math.floor(Math.random() * available.length)];
+    toggleNumberSafe(randomBall);
+  }, [highlightNumbers, toggleNumberSafe]);
+
+  const handleManualNumberSubmitSafe = useCallback((e) => {
+    e.preventDefault();
+    const num = parseInt(manualNumberInput);
+    if (isNaN(num)) { alert("Please enter a valid number"); return; }
+    if (num < 1 || num > 75) { alert("Please enter a number between 1 and 75"); return; }
+    toggleNumberSafe(num);
+    setManualNumberInput("");
+  }, [manualNumberInput, toggleNumberSafe]);
+
+  const handleNewRound = useCallback(() => {
+    if (highlightNumbers.length === 0) { alert("No numbers drawn in current round!"); return; }
+    startNewRound();
+  }, [highlightNumbers, startNewRound]);
+
+  const handleReset = useCallback(() => {
     setHighlightNumbers([]);
     setFlippedCards({});
-    setWinners({ blackout: [], t: [], x: [], twoLines: [], threeLines: [], fourLines: [], fourCorners: [], sideToSide: [], emptyCross: [] });
-    setRecentCalls([]);
-    alert("🎯 New round started! All called numbers have been cleared.");
-  };
+  }, []);
 
-  const handleReset = () => {
-    setHighlightNumbers([]);
-    setFlippedCards({});
-    setWinners({ blackout: [], t: [], x: [], twoLines: [], threeLines: [], fourLines: [], fourCorners: [], sideToSide: [], emptyCross: [] });
-    setRecentCalls([]);
-  };
-
-  /* ------------------ CARD ACTIONS ------------------ */
-  const togglePin = (cardIndex, e) => { e.stopPropagation(); setPinnedCards(prev => ({ ...prev, [cardIndex]: !prev[cardIndex] })); };
-  const deleteCard = (cardIndex, e) => {
+  const togglePin = useCallback((cardIndex, section, e) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete card ${formatSerial(cardIndex)}?`)) {
-      const newCards = cards.filter((_, idx) => idx !== cardIndex);
-      const newPercentages = cardWinPercentages.filter((_, idx) => idx !== cardIndex);
-      const newPinned = {};
-      const newFlipped = {};
-      Object.keys(pinnedCards).forEach(key => { const numKey = parseInt(key); if (numKey < cardIndex) newPinned[numKey] = pinnedCards[numKey]; else if (numKey > cardIndex) newPinned[numKey - 1] = pinnedCards[numKey]; });
-      Object.keys(flippedCards).forEach(key => { const numKey = parseInt(key); if (numKey < cardIndex) newFlipped[numKey] = flippedCards[numKey]; else if (numKey > cardIndex) newFlipped[numKey - 1] = flippedCards[numKey]; });
-      setCards(newCards);
-      setCardWinPercentages(newPercentages);
-      setPinnedCards(newPinned);
-      setFlippedCards(newFlipped);
+    const key = `${section}-${cardIndex}`;
+    setPinnedCards(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const toggleCardFlip = useCallback((cardIndex, section) => {
+    const key = `${section}-${cardIndex}`;
+    if (editingCard !== key) {
+      setFlippedCards(prev => ({ ...prev, [key]: !prev[key] }));
     }
-  };
-  const startEdit = (card, idx, e) => { e.stopPropagation(); setEditingCard(idx); setEditFormData(JSON.parse(JSON.stringify(card))); };
-  const cancelEdit = (e) => { e.stopPropagation(); setEditingCard(null); setEditFormData(null); };
-  const saveEdit = (idx, e) => {
+  }, [editingCard]);
+
+  const deleteCard = useCallback((cardIndex, section, e) => {
     e.stopPropagation();
-    if (!editFormData) return;
-    const newCards = [...cards];
-    newCards[idx] = editFormData;
-    const newPercentages = [...cardWinPercentages];
-    newPercentages[idx] = calculateWinPercentage(editFormData, currentPattern);
-    setCards(newCards);
-    setCardWinPercentages(newPercentages);
+    if (window.confirm(`Are you sure you want to delete ${section === "myCards" ? "My" : "Generated"} card #${cardIndex + 1}?`)) {
+      if (section === "myCards") { setMyCards(prev => prev.filter((_, idx) => idx !== cardIndex)); }
+      else { setGeneratedCards(prev => prev.filter((_, idx) => idx !== cardIndex)); }
+      setPinnedCards(prev => {
+        const newPinned = {};
+        Object.keys(prev).forEach(key => {
+          const [keySection, keyIndex] = key.split('-');
+          const numKey = parseInt(keyIndex);
+          if (keySection !== section) { newPinned[key] = prev[key]; }
+          else if (numKey < cardIndex) { newPinned[key] = prev[key]; }
+          else if (numKey > cardIndex) { newPinned[`${section}-${numKey - 1}`] = prev[key]; }
+        });
+        return newPinned;
+      });
+      setFlippedCards(prev => {
+        const newFlipped = {};
+        Object.keys(prev).forEach(key => {
+          const [keySection, keyIndex] = key.split('-');
+          const numKey = parseInt(keyIndex);
+          if (keySection !== section) { newFlipped[key] = prev[key]; }
+          else if (numKey < cardIndex) { newFlipped[key] = prev[key]; }
+          else if (numKey > cardIndex) { newFlipped[`${section}-${numKey - 1}`] = prev[key]; }
+        });
+        return newFlipped;
+      });
+      setCardLabels(prev => {
+        const newLabels = {};
+        Object.keys(prev).forEach(key => {
+          const [keySection, keyIndex] = key.split('-');
+          const numKey = parseInt(keyIndex);
+          if (keySection !== section) { newLabels[key] = prev[key]; }
+          else if (numKey < cardIndex) { newLabels[key] = prev[key]; }
+          else if (numKey > cardIndex) { newLabels[`${section}-${numKey - 1}`] = prev[key]; }
+        });
+        return newLabels;
+      });
+    }
+  }, []);
+
+  const startEdit = useCallback((card, cardIndex, section, e) => {
+    e.stopPropagation();
+    const key = `${section}-${cardIndex}`;
+    setEditingCard(key);
+    setEditFormData(JSON.parse(JSON.stringify(card)));
+    setValidationErrors({});
+  }, []);
+
+  const cancelEdit = useCallback((e) => {
+    e.stopPropagation();
     setEditingCard(null);
     setEditFormData(null);
-    alert(`Card ${formatSerial(idx)} saved successfully!`);
-  };
-  const updateCell = (col, row, value, e) => {
+    setValidationErrors({});
+  }, []);
+
+  const updateCell = useCallback((col, row, value, e) => {
     e.stopPropagation();
     if (!editFormData) return;
-    const newCard = [...editFormData];
-    newCard[col] = [...newCard[col]];
-    newCard[col][row] = value === "FREE" ? "FREE" : parseInt(value) || newCard[col][row];
-    setEditFormData(newCard);
-  };
-  const saveCard = (card, idx, e) => {
+    let newValue = value;
+    if (value === "FREE" || value === "★") {
+      if (col === 2 && row === 2 && value === "FREE") { newValue = "FREE"; }
+      else if (value === "★") { newValue = "★"; }
+      else { alert(`FREE space is only allowed in the center of N column (row 3, column N)`); return; }
+    } else {
+      const num = parseInt(value);
+      if (isNaN(num)) { alert("Please enter a valid number (1-75) or 'FREE' for center"); return; }
+      if (num < 1 || num > 75) { alert("Please enter a number between 1 and 75"); return; }
+      const [min, max] = CONSTANTS.COLUMN_RANGES[CONSTANTS.COLUMNS[col]];
+      if (num < min || num > max) { alert(`${num} is not in column ${CONSTANTS.COLUMNS[col]} range (${min}-${max})`); return; }
+      newValue = num;
+    }
+    setEditFormData(prev => {
+      const newCard = [...prev];
+      newCard[col] = [...newCard[col]];
+      newCard[col][row] = newValue;
+      return newCard;
+    });
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[`cell_${col}_${row}`];
+      return newErrors;
+    });
+  }, [editFormData]);
+
+  const saveEdit = useCallback((cardIndex, section, e) => {
     e.stopPropagation();
-    const savedCard = { id: Date.now() + idx, card: JSON.parse(JSON.stringify(card)), serial: formatSerial(idx), date: new Date().toLocaleString(), patterns: checkAllPatterns(card) };
+    if (!editFormData) return;
+    const errors = validateCard(editFormData);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      alert(`Card validation failed:\n${Object.values(errors).join('\n')}`);
+      return;
+    }
+    if (section === "myCards") {
+      setMyCards(prev => { const newCards = [...prev]; newCards[cardIndex] = editFormData; return newCards; });
+    } else {
+      setGeneratedCards(prev => { const newCards = [...prev]; newCards[cardIndex] = editFormData; return newCards; });
+    }
+    setEditingCard(null);
+    setEditFormData(null);
+    setValidationErrors({});
+    alert(`✅ Card saved successfully!`);
+  }, [editFormData, validateCard]);
+
+  const saveCard = useCallback((card, cardIndex, section, e) => {
+    e.stopPropagation();
+    const cardType = section === "myCards" ? "MY" : "GEN";
+    const savedCard = {
+      id: Date.now() + cardIndex,
+      card: JSON.parse(JSON.stringify(card)),
+      serial: formatSerial(cardIndex, cardType),
+      label: getCardLabel(cardIndex, section),
+      section: section,
+      date: new Date().toLocaleString(),
+      patterns: checkAllPatterns(card)
+    };
     setSavedCards(prev => [...prev, savedCard]);
-    alert(`Card ${formatSerial(idx)} saved to collection!`);
-  };
-  const loadSavedCard = (savedCard) => {
-    const newCards = [...cards, savedCard.card];
-    const newPercentages = [...cardWinPercentages, calculateWinPercentage(savedCard.card, currentPattern)];
-    setCards(newCards);
-    setCardWinPercentages(newPercentages);
+    alert(`Card saved to collection!`);
+  }, [formatSerial, getCardLabel, checkAllPatterns]);
+
+  const loadSavedCard = useCallback((savedCard) => {
+    if (savedCard.section === "myCards") { setMyCards(prev => [...prev, savedCard.card]); }
+    else { setGeneratedCards(prev => [...prev, savedCard.card]); }
     setShowSavedCards(false);
-  };
-  const deleteSavedCard = (savedCardId, e) => {
+  }, []);
+
+  const deleteSavedCard = useCallback((savedCardId, e) => {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this saved card?")) {
       setSavedCards(prev => prev.filter(card => card.id !== savedCardId));
     }
-  };
-  const toggleNumber = (num) => {
-    setHighlightNumbers((prev) => {
-      if (prev.includes(num)) return prev.filter((n) => n !== num);
-      if (prev.length >= maxBalls) {
-        alert(`Maximum ${maxBalls} balls reached`);
-        return prev;
-      }
-      return [...prev, num].sort((a, b) => a - b);
-    });
-  };
-  const selectRandomBall = () => {
-    const available = Array.from({ length: 75 }, (_, i) => i + 1).filter(n => !highlightNumbers.includes(n));
-    if (available.length === 0) { alert("All balls have been drawn!"); return; }
-    const randomBall = available[Math.floor(Math.random() * available.length)];
-    toggleNumber(randomBall);
-    setRecentCalls(prev => [randomBall, ...prev.filter(n => n !== randomBall)].slice(0, 10));
-  };
-  const toggleCardFlip = (cardIndex) => { if (editingCard !== cardIndex) setFlippedCards(prev => ({ ...prev, [cardIndex]: !prev[cardIndex] })); };
+  }, []);
 
-  /* ------------------ PATTERN CHECKS ------------------ */
-  const checkBlackout = (card) => card.flat().filter((n) => n !== "FREE").every((n) => highlightNumbers.includes(n));
-  const checkTPattern = (card) => { const topRow = card.map((col) => col[0]); const middleCol = card[2].filter((n) => n !== "FREE"); return [...topRow, ...middleCol].every((n) => highlightNumbers.includes(n)); };
-  const checkXPattern = (card) => { let diag1 = true, diag2 = true; for (let i = 0; i < 5; i++) { const a = card[i][i]; const b = card[i][4 - i]; if (a !== "FREE" && !highlightNumbers.includes(a)) diag1 = false; if (b !== "FREE" && !highlightNumbers.includes(b)) diag2 = false; } return diag1 && diag2; };
-  const checkTwoLines = (card) => { let rows = 0; for (let r = 0; r < 5; r++) { let complete = true; for (let c = 0; c < 5; c++) { const num = card[c][r]; if (num !== "FREE" && !highlightNumbers.includes(num)) { complete = false; break; } } if (complete) rows++; } return rows >= 2; };
-  const checkThreeLines = (card) => { let rows = 0; for (let r = 0; r < 5; r++) { let complete = true; for (let c = 0; c < 5; c++) { const num = card[c][r]; if (num !== "FREE" && !highlightNumbers.includes(num)) { complete = false; break; } } if (complete) rows++; } return rows >= 3; };
-  const checkFourLines = (card) => { let rows = 0; for (let r = 0; r < 5; r++) { let complete = true; for (let c = 0; c < 5; c++) { const num = card[c][r]; if (num !== "FREE" && !highlightNumbers.includes(num)) { complete = false; break; } } if (complete) rows++; } return rows >= 4; };
-  const checkFourCorners = (card) => { const corners = [card[0][0], card[4][0], card[0][4], card[4][4]]; return corners.every(num => num !== "FREE" && highlightNumbers.includes(num)); };
-  const checkSideToSide = (card) => { let columns = 0; for (let c = 0; c < 5; c++) { if (c === 2) continue; let complete = true; for (let r = 0; r < 5; r++) { const num = card[c][r]; if (num !== "FREE" && !highlightNumbers.includes(num)) { complete = false; break; } } if (complete) columns++; } return columns >= 4; };
-  const checkEmptyCross = (card) => { for (let r = 0; r < 5; r++) { for (let c = 0; c < 5; c++) { const num = card[c][r]; if (num === "FREE") continue; if (r === 2 || c === 2) continue; if (!highlightNumbers.includes(num)) return false; } } return true; };
+  const recordBingoResult = useCallback(() => {
+    const allCards = [...myCards, ...generatedCards];
+    if (allCards.length === 0) { alert("Please add some cards first!"); return; }
+    const patternWinners = winners[currentPattern] || [];
+    if (patternWinners.length === 0) { alert(`No winners yet for the ${currentPattern} pattern!`); return; }
+    const pattern = PATTERNS.find(p => p.id === currentPattern);
+    const result = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleString(),
+      pattern: currentPattern,
+      patternIcon: pattern.icon,
+      patternName: pattern.label,
+      ballsDrawn: [...highlightNumbers].sort((a, b) => a - b),
+      ballsDrawnCount: highlightNumbers.length,
+      totalCards: allCards.length,
+      winners: patternWinners.map(idx => {
+        const isMyCard = idx < myCards.length;
+        const section = isMyCard ? "myCards" : "generated";
+        const cardIndex = isMyCard ? idx : idx - myCards.length;
+        return {
+          cardIndex: idx,
+          section: section,
+          sectionIndex: cardIndex,
+          serial: formatSerial(cardIndex, isMyCard ? "MY" : "GEN"),
+          label: getCardLabel(cardIndex, section),
+          card: isMyCard ? myCards[cardIndex] : generatedCards[cardIndex],
+          winPercentage: calculateWinPercentage(isMyCard ? myCards[cardIndex] : generatedCards[cardIndex], currentPattern),
+          winningPatterns: checkAllPatterns(isMyCard ? myCards[cardIndex] : generatedCards[cardIndex])
+        };
+      }),
+      winnerCount: patternWinners.length,
+      notes: ""
+    };
+    setGameResults(prev => [...prev, result]);
+    setGameHistory(prev => [{ id: result.id, timestamp: result.timestamp, pattern: result.pattern, patternIcon: result.patternIcon, winnerCount: result.winnerCount, ballsDrawn: result.ballsDrawnCount }, ...prev]);
+    setCurrentGameResult(result);
+    setShowResults(true);
+  }, [myCards, generatedCards, winners, currentPattern, highlightNumbers, formatSerial, getCardLabel, calculateWinPercentage, checkAllPatterns]);
 
-  useEffect(() => {
-    if (!cards.length) return;
-    const newWinners = { blackout: [], t: [], x: [], twoLines: [], threeLines: [], fourLines: [], fourCorners: [], sideToSide: [], emptyCross: [] };
-    cards.forEach((card, i) => {
-      if (checkBlackout(card)) newWinners.blackout.push(i);
-      if (checkTPattern(card)) newWinners.t.push(i);
-      if (checkXPattern(card)) newWinners.x.push(i);
-      if (checkTwoLines(card)) newWinners.twoLines.push(i);
-      if (checkThreeLines(card)) newWinners.threeLines.push(i);
-      if (checkFourLines(card)) newWinners.fourLines.push(i);
-      if (checkFourCorners(card)) newWinners.fourCorners.push(i);
-      if (checkSideToSide(card)) newWinners.sideToSide.push(i);
-      if (checkEmptyCross(card)) newWinners.emptyCross.push(i);
-    });
-    setWinners(newWinners);
-  }, [highlightNumbers, cards]);
+  const saveGameResult = useCallback((resultId, notes) => {
+    setGameResults(prev => prev.map(result => result.id === resultId ? { ...result, notes, saved: true } : result));
+    alert("Game result saved successfully!");
+  }, []);
 
-  const getCardScore = (card) => card.flat().filter((n) => n !== "FREE" && !highlightNumbers.includes(n)).length;
-  const rankedCards = cards.map((card, idx) => ({
-    card, idx,
-    isWinner: winners[currentPattern].includes(idx),
-    score: getCardScore(card),
-    progress: ((25 - getCardScore(card)) / 24) * 100,
-    winPercentage: cardWinPercentages[idx] || 0,
-    winningPatterns: checkAllPatterns(card),
-    isPinned: pinnedCards[idx] || false,
-    favoriteCount: favoriteNumbersList.length > 0 ? card.flat().filter(n => n !== "FREE" && favoriteNumbersList.includes(n)).length : 0
-  })).sort((a, b) => { if (a.isPinned && !b.isPinned) return -1; if (!a.isPinned && b.isPinned) return 1; if (a.isWinner && !b.isWinner) return -1; if (!a.isWinner && b.isWinner) return 1; return a.score - b.score; });
-
-  const formatSerial = (i) => `#${String(i + 1).padStart(3, "0")}`;
-  const topWinner = rankedCards[0];
-  const stats = calculateStatistics();
-  const favoriteStats = getFavoriteStats();
-  const filteredNumbers = getFilteredNumbers();
-  const isPrime = (num) => {
-    if (num <= 1) return false;
-    if (num <= 3) return true;
-    if (num % 2 === 0 || num % 3 === 0) return false;
-    for (let i = 5; i * i <= num; i += 6) {
-      if (num % i === 0 || num % (i + 2) === 0) return false;
+  const deleteGameResult = useCallback((resultId) => {
+    if (window.confirm("Are you sure you want to delete this game result?")) {
+      setGameResults(prev => prev.filter(r => r.id !== resultId));
+      setGameHistory(prev => prev.filter(h => h.id !== resultId));
+      if (currentGameResult?.id === resultId) { setCurrentGameResult(null); setShowResults(false); }
     }
-    return true;
-  };
+  }, [currentGameResult]);
 
-  const getColumnForNumber = (num) => {
-    if (num <= 15) return 'B';
-    if (num <= 30) return 'I';
-    if (num <= 45) return 'N';
-    if (num <= 60) return 'G';
-    return 'O';
-  };
+  const exportResults = useCallback(() => {
+    const dataStr = JSON.stringify(gameResults, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = `bingo-results-${new Date().toISOString().split('T')[0]}.json`;
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  }, [gameResults]);
 
-  const ballStats = {
-    total: highlightNumbers.length,
-    remaining: 44 - highlightNumbers.length,
-    percentage: (highlightNumbers.length / 44) * 100,
-    byColumn: { B: 0, I: 0, N: 0, G: 0, O: 0 },
-    even: 0,
-    odd: 0,
-    prime: 0
-  };
-  
-  highlightNumbers.forEach(num => {
-    if (num <= 15) ballStats.byColumn.B++;
-    else if (num <= 30) ballStats.byColumn.I++;
-    else if (num <= 45) ballStats.byColumn.N++;
-    else if (num <= 60) ballStats.byColumn.G++;
-    else ballStats.byColumn.O++;
-    if (num % 2 === 0) ballStats.even++;
-    else ballStats.odd++;
-    if (isPrime(num)) ballStats.prime++;
-  });
+  const calculateStatistics = useCallback(() => {
+    if (gameResults.length === 0) return null;
+    const stats = {
+      totalGames: gameResults.length,
+      averageBallsToWin: Math.round(gameResults.reduce((acc, r) => acc + r.ballsDrawnCount, 0) / gameResults.length),
+      mostWinningPattern: "",
+      patternStats: {},
+      averageWinnersPerGame: (gameResults.reduce((acc, r) => acc + r.winnerCount, 0) / gameResults.length).toFixed(1)
+    };
+    const patternCounts = {};
+    gameResults.forEach(result => {
+      if (!stats.patternStats[result.pattern]) {
+        stats.patternStats[result.pattern] = { count: 0, totalWinners: 0, icon: result.patternIcon, name: result.patternName };
+      }
+      stats.patternStats[result.pattern].count++;
+      stats.patternStats[result.pattern].totalWinners += result.winnerCount;
+      patternCounts[result.pattern] = (patternCounts[result.pattern] || 0) + 1;
+    });
+    let maxCount = 0;
+    Object.entries(patternCounts).forEach(([pattern, count]) => {
+      if (count > maxCount) { maxCount = count; stats.mostWinningPattern = stats.patternStats[pattern]?.name || pattern; }
+    });
+    return stats;
+  }, [gameResults]);
 
-  // Styles (with mobile touch optimizations)
+  const favoriteStats = useMemo(() => getFavoriteStats(), [getFavoriteStats]);
+  const filteredNumbers = useMemo(() => getFilteredNumbers(), [getFilteredNumbers]);
+  const stats = useMemo(() => calculateStatistics(), [calculateStatistics]);
+  const roundComparison = useMemo(() => getRoundComparison(), [roundHistory, getRoundComparison]);
+  const numberFrequency = useMemo(() => getNumberFrequencyAcrossRounds(), [getNumberFrequencyAcrossRounds]);
+
+  const getRankedCards = useCallback((cards, section) => {
+    return cards.map((card, idx) => {
+      const key = `${section}-${idx}`;
+      return {
+        card, idx, section, key,
+        label: getCardLabel(idx, section),
+        isWinner: winners[currentPattern]?.includes(section === "myCards" ? idx : myCards.length + idx) || false,
+        score: getCardScore(card),
+        progress: ((25 - getCardScore(card)) / 24) * 100,
+        winPercentage: calculateWinPercentage(card, currentPattern),
+        winningPatterns: checkAllPatterns(card),
+        isPinned: pinnedCards[key] || false,
+        favoriteCount: favoriteNumbersList.length > 0
+          ? card.flat().filter(n => n !== "FREE" && n !== "★" && favoriteNumbersList.includes(n)).length
+          : 0
+      };
+    }).sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      if (a.isWinner && !b.isWinner) return -1;
+      if (!a.isWinner && b.isWinner) return 1;
+      return a.score - b.score;
+    });
+  }, [winners, currentPattern, getCardLabel, getCardScore, calculateWinPercentage, checkAllPatterns, pinnedCards, favoriteNumbersList, myCards.length]);
+
+  const myRankedCards = useMemo(() => getRankedCards(myCards, "myCards"), [myCards, getRankedCards]);
+  const generatedRankedCards = useMemo(() => getRankedCards(generatedCards, "generated"), [generatedCards, getRankedCards]);
+
+  const topWinner = useMemo(() => {
+    const allRanked = [...myRankedCards, ...generatedRankedCards].sort((a, b) => a.score - b.score);
+    return allRanked[0];
+  }, [myRankedCards, generatedRankedCards]);
+
+  const hasCellError = useCallback((col, row) => {
+    return validationErrors[`cell_${col}_${row}`] || validationErrors[`col_${col}`];
+  }, [validationErrors]);
+
+  // Responsive styles with mobile-first approach
   const styles = {
-    container: { minHeight: "100vh", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
-    header: { background: "rgba(255, 255, 255, 0.95)", boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)", position: "sticky", top: 0, zIndex: 100 },
-    headerContent: { maxWidth: "1400px", margin: "0 auto", padding: "1rem 2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" },
-    title: { margin: 0, fontSize: "clamp(1.2rem, 5vw, 1.8rem)", background: "linear-gradient(135deg, #667eea, #764ba2)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
-    headerButtons: { display: "flex", gap: "0.5rem", flexWrap: "wrap" },
-    backButton: { padding: "0.5rem 1rem", background: "#f0f0f0", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
-    savedButton: { padding: "0.5rem 1rem", background: "#ffd700", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
-    resultsButton: { padding: "0.5rem 1rem", background: "#4CAF50", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
-    historyButton: { padding: "0.5rem 1rem", background: "#2196F3", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
-    ballRecordsButton: { padding: "0.5rem 1rem", background: "#FF5722", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
-    floatingPanelToggle: { padding: "0.5rem 1rem", background: "#9C27B0", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease" },
-    main: { maxWidth: "1400px", margin: "0 auto", padding: "clamp(1rem, 3vw, 2rem)" },
-    floatingPanel: {
-      position: "fixed",
-      background: "white",
-      borderRadius: "16px",
-      boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
-      zIndex: 1000,
-      minWidth: "clamp(260px, 80vw, 320px)",
-      cursor: "default",
-      touchAction: "none" // Prevents scrolling while dragging on mobile
+    container: { 
+      minHeight: "100vh", 
+      width: "100%",
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      overflowX: "hidden",
+      position: "relative"
     },
-    dragHandle: {
-      padding: "12px 16px",
-      background: "linear-gradient(135deg, #667eea, #764ba2)",
-      color: "white",
-      borderRadius: "16px 16px 0 0",
-      cursor: "grab",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      userSelect: "none",
-      touchAction: "none"
+    header: { 
+      background: "rgba(255, 255, 255, 0.95)", 
+      boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)", 
+      position: "sticky", 
+      top: 0, 
+      zIndex: 100,
+      width: "100%"
     },
-    panelContent: { padding: "16px" },
-    numberInput: {
-      display: "flex",
-      gap: "8px",
-      marginBottom: "16px"
+    headerContent: { 
+      maxWidth: "1400px", 
+      margin: "0 auto", 
+      padding: "0.75rem 1rem", 
+      display: "flex", 
+      flexDirection: "column",
+      gap: "0.75rem"
     },
-    input: {
-      flex: 1,
-      padding: "12px",
-      border: "2px solid #e0e0e0",
-      borderRadius: "8px",
-      fontSize: "16px",
-      WebkitAppearance: "none" // Removes default styling on iOS
+    title: { 
+      margin: 0, 
+      fontSize: "clamp(1.2rem, 5vw, 1.8rem)", 
+      background: "linear-gradient(135deg, #667eea, #764ba2)", 
+      WebkitBackgroundClip: "text", 
+      WebkitTextFillColor: "transparent",
+      textAlign: "center"
     },
-    callButton: {
-      padding: "12px 20px",
-      background: "linear-gradient(135deg, #667eea, #764ba2)",
-      color: "white",
-      border: "none",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-      fontSize: "16px"
+    headerButtons: { 
+      display: "flex", 
+      gap: "0.5rem", 
+      flexWrap: "wrap", 
+      justifyContent: "center" 
     },
-    quickButtons: {
-      display: "grid",
-      gridTemplateColumns: "repeat(5, 1fr)",
-      gap: "8px",
-      marginBottom: "16px"
+    profileButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "linear-gradient(135deg, #667eea, #764ba2)", 
+      color: "white", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease", 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "0.5rem" 
     },
-    quickButton: {
-      padding: "10px 4px",
-      background: "#f0f0f0",
-      border: "1px solid #ddd",
-      borderRadius: "6px",
-      cursor: "pointer",
-      fontSize: "clamp(12px, 3vw, 14px)",
-      fontWeight: "bold",
-      transition: "all 0.2s ease"
+    backButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "#f0f0f0", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease" 
     },
-    recentSection: {
-      marginTop: "12px",
-      borderTop: "1px solid #e0e0e0",
-      paddingTop: "12px"
+    savedButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "#ffd700", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease" 
     },
-    recentTitle: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "8px",
-      fontSize: "12px",
-      color: "#666"
+    resultsButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "#4CAF50", 
+      color: "white", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease" 
     },
-    recentNumbers: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "6px"
+    historyButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "#2196F3", 
+      color: "white", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease" 
     },
-    recentNumber: {
-      padding: "6px 12px",
-      background: "#ffeb3b",
-      borderRadius: "20px",
-      fontSize: "14px",
-      cursor: "pointer",
-      fontWeight: "bold",
-      transition: "all 0.2s ease"
+    roundFrequencyButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "#9C27B0", 
+      color: "white", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease", 
+      position: "relative" 
     },
-    statusBadge: {
-      display: "inline-block",
-      width: "10px",
-      height: "10px",
-      borderRadius: "50%",
-      marginRight: "6px"
+    roundHistoryButton: { 
+      padding: "0.5rem 0.75rem", 
+      background: "#FF9800", 
+      color: "white", 
+      border: "none", 
+      borderRadius: "8px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.75rem, 3vw, 0.9rem)", 
+      transition: "all 0.3s ease", 
+      position: "relative" 
     },
-    patternSelector: { display: "flex", gap: "0.5rem", marginBottom: "2rem", flexWrap: "wrap", justifyContent: "center" },
-    patternButton: (isActive) => ({ display: "flex", alignItems: "center", gap: "0.5rem", padding: "clamp(0.5rem, 3vw, 1rem) clamp(1rem, 4vw, 2rem)", border: "none", borderRadius: "12px", background: isActive ? "linear-gradient(135deg, #667eea, #764ba2)" : "white", color: isActive ? "white" : "black", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", cursor: "pointer", fontSize: "clamp(0.8rem, 3vw, 1rem)", transition: "all 0.3s ease", position: "relative" }),
-    controlsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", marginBottom: "2rem" },
-    controlCard: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 3vw, 1.5rem)", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" },
-    inputGroup: { marginBottom: "1rem" },
-    label: { display: "block", marginBottom: "0.5rem", color: "#666", fontSize: "0.9rem", fontWeight: "500" },
-    textarea: { width: "100%", padding: "0.5rem", border: "2px solid #e0e0e0", borderRadius: "8px", fontSize: "1rem", minHeight: "80px", boxSizing: "border-box", fontFamily: "inherit" },
-    favoriteNumbersContainer: { marginTop: "1rem", padding: "1rem", background: "#f8f9fa", borderRadius: "12px", border: "2px solid #ffd700" },
+    main: { 
+      maxWidth: "1400px", 
+      margin: "0 auto", 
+      padding: "1rem",
+      width: "100%",
+      boxSizing: "border-box"
+    },
+    patternSelector: { 
+      display: "flex", 
+      gap: "0.5rem", 
+      marginBottom: "1.5rem", 
+      flexWrap: "wrap", 
+      justifyContent: "center" 
+    },
+    patternButton: (isActive) => ({ 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "0.25rem", 
+      padding: "0.5rem 0.75rem", 
+      border: "none", 
+      borderRadius: "8px", 
+      background: isActive ? "linear-gradient(135deg, #667eea, #764ba2)" : "white", 
+      color: isActive ? "white" : "black", 
+      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.7rem, 3vw, 0.85rem)", 
+      transition: "all 0.3s ease", 
+      position: "relative",
+      flex: "1 0 auto",
+      minWidth: "80px",
+      justifyContent: "center"
+    }),
+    controlsGrid: { 
+      display: "grid", 
+      gridTemplateColumns: "1fr", 
+      gap: "1rem", 
+      marginBottom: "1.5rem" 
+    },
+    controlCard: { 
+      background: "white", 
+      borderRadius: "12px", 
+      padding: "1rem", 
+      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)" 
+    },
+    inputGroup: { marginBottom: "0.75rem" },
+    label: { display: "block", marginBottom: "0.25rem", color: "#666", fontSize: "0.8rem", fontWeight: "500" },
+    input: { width: "100%", padding: "0.5rem", border: "2px solid #e0e0e0", borderRadius: "6px", fontSize: "0.9rem", boxSizing: "border-box" },
+    textarea: { width: "100%", padding: "0.5rem", border: "2px solid #e0e0e0", borderRadius: "6px", fontSize: "0.9rem", minHeight: "60px", boxSizing: "border-box", fontFamily: "inherit" },
+    favoriteNumbersContainer: { marginTop: "0.75rem", padding: "0.75rem", background: "#f8f9fa", borderRadius: "8px", border: "2px solid #ffd700" },
     favoriteHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", cursor: "pointer" },
-    favoriteTitle: { margin: 0, fontSize: "1rem", color: "#333" },
-    toggleButton: { padding: "0.25rem 0.5rem", background: "#667eea", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem" },
-    columnSelector: { display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" },
-    columnButton: { flex: 1, padding: "0.5rem", background: "#e0e0e0", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", minWidth: "40px" },
-    searchInput: { width: "100%", padding: "0.5rem", marginBottom: "0.5rem", border: "2px solid #e0e0e0", borderRadius: "4px", fontSize: "0.9rem" },
-    numberSelectorGrid: { display: "grid", gridTemplateColumns: "repeat(15, 1fr)", gap: "0.25rem", marginTop: "0.5rem", marginBottom: "0.5rem", maxHeight: "200px", overflowY: "auto", padding: "0.5rem", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0" },
-    numberButton: (isSelected) => ({ aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", background: isSelected ? "linear-gradient(135deg, #667eea, #764ba2)" : "#f0f0f0", color: isSelected ? "white" : "#333", border: isSelected ? "none" : "1px solid #ccc", borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem", fontWeight: isSelected ? "bold" : "normal", transition: "all 0.2s ease" }),
-    favoriteStats: { marginTop: "0.5rem", padding: "0.5rem", background: "#e8f4fd", borderRadius: "8px", fontSize: "0.9rem" },
-    statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", marginTop: "0.5rem" },
-    statItem: { background: "white", padding: "0.5rem", borderRadius: "4px", textAlign: "center", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" },
-    favoriteListsSection: { marginTop: "1rem", padding: "0.5rem", background: "#fff3e0", borderRadius: "8px" },
-    listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", background: "white", borderRadius: "4px", marginBottom: "0.5rem", cursor: "pointer", border: "1px solid #e0e0e0" },
-    listName: { fontWeight: "bold", fontSize: "0.95rem" },
-    listDetails: { fontSize: "0.8rem", color: "#666" },
-    listActions: { display: "flex", gap: "0.25rem" },
-    smallButton: { padding: "0.25rem 0.5rem", background: "#667eea", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem" },
-    generateButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", fontSize: "1rem", cursor: "pointer", transition: "all 0.3s ease", marginTop: "0.5rem" },
-    randomBallButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#4CAF50", color: "white", fontSize: "1rem", cursor: "pointer", marginBottom: "0.5rem" },
-    newRoundButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#ff9800", color: "white", fontSize: "1rem", cursor: "pointer", marginBottom: "0.5rem", transition: "all 0.3s ease", fontWeight: "bold" },
-    recordResultButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#9C27B0", color: "white", fontSize: "1rem", cursor: "pointer", marginBottom: "0.5rem", transition: "all 0.3s ease", fontWeight: "bold" },
-    resetButton: { width: "100%", padding: "0.75rem", border: "none", borderRadius: "8px", background: "#ff4757", color: "white", fontSize: "1rem", cursor: "pointer" },
-    ballsSection: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 3vw, 1.5rem)", marginBottom: "2rem", overflowX: "auto" },
-    ballsGrid: { display: "grid", gridTemplateColumns: "repeat(15, 1fr)", gap: "0.5rem", minWidth: "500px" },
-    ball: (active) => ({ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: active ? "#ffeb3b" : "white", border: active ? "2px solid #fbc02d" : "2px solid #e0e0e0", borderRadius: "50%", cursor: "pointer", transition: "all 0.3s ease", fontSize: "clamp(10px, 2.5vw, 12px)", fontWeight: "bold" }),
-    favoriteBall: { border: "2px solid #ffd700", boxShadow: "0 0 10px rgba(255,215,0,0.5)" },
-    cardsContainer: { display: "grid", gridTemplateColumns: viewMode === "grid" ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: "1.5rem" },
-    cardContainer: { perspective: "1000px", height: "auto", cursor: "pointer", position: "relative" },
-    cardInner: (isFlipped) => ({ position: "relative", width: "100%", height: "100%", transition: "transform 0.6s", transformStyle: "preserve-3d", transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }),
-    cardFront: { position: "relative", width: "100%", height: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" },
-    cardBack: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: "12px", padding: "1rem", boxSizing: "border-box", display: "flex", flexDirection: "column", border: "2px solid #ffd700", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" },
-    bingoCard: (isWinner, isPinned, hasFavorites) => ({ background: "white", border: isWinner ? "3px solid #ff4757" : isPinned ? "3px solid #ffd700" : hasFavorites ? "2px solid #4CAF50" : "2px solid #e0e0e0", borderRadius: "12px", padding: "1rem", transition: "all 0.3s ease", width: "100%", height: "100%", boxSizing: "border-box" }),
-    bingoGrid: { display: "flex", flexDirection: "column", gap: "0.25rem", marginBottom: "0.5rem" },
-    bingoRow: { display: "flex", justifyContent: "space-around" },
-    bingoCell: (isHighlighted, isFree, isFavorite) => ({ width: "clamp(30px, 8vw, 35px)", height: "clamp(30px, 8vw, 35px)", display: "flex", alignItems: "center", justifyContent: "center", border: isFavorite ? "2px solid #ffd700" : "1px solid #e0e0e0", borderRadius: "4px", background: isHighlighted ? "#ffeb3b" : isFree ? "#f0f0f0" : "white", fontWeight: isHighlighted ? "bold" : "normal", fontSize: isFree ? "1.2rem" : "clamp(10px, 3vw, 12px)", cursor: "default", position: "relative" }),
-    favoriteStar: { position: "absolute", top: "-5px", right: "-5px", fontSize: "0.6rem", color: "#ffd700" },
-    editInput: { width: "30px", height: "30px", textAlign: "center", border: "2px solid #667eea", borderRadius: "4px", fontSize: "0.9rem", outline: "none" },
-    cardActions: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "flex", gap: "0.5rem", zIndex: 20, background: "rgba(255, 255, 255, 0.95)", padding: "0.75rem 1rem", borderRadius: "40px", boxShadow: "0 4px 15px rgba(0,0,0,0.2)", border: "2px solid #667eea", opacity: 0, transition: "opacity 0.3s ease", pointerEvents: "none" },
-    actionButton: { width: "36px", height: "36px", borderRadius: "50%", border: "none", background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", transition: "all 0.2s ease", pointerEvents: "auto" },
-    pinButton: (isPinned) => ({ background: isPinned ? "#ffd700" : "white", color: isPinned ? "white" : "#333", border: isPinned ? "2px solid #ffd700" : "2px solid #e0e0e0" }),
+    favoriteTitle: { margin: 0, fontSize: "0.9rem", color: "#333" },
+    toggleButton: { padding: "0.2rem 0.4rem", background: "#667eea", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "0.7rem" },
+    columnSelector: { display: "flex", gap: "0.25rem", marginBottom: "0.75rem", flexWrap: "wrap" },
+    columnButton: { flex: 1, padding: "0.4rem", background: "#e0e0e0", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", minWidth: "35px", fontSize: "0.7rem" },
+    searchInput: { width: "100%", padding: "0.4rem", marginBottom: "0.5rem", border: "2px solid #e0e0e0", borderRadius: "4px", fontSize: "0.8rem" },
+    numberSelectorGrid: { 
+      display: "grid", 
+      gridTemplateColumns: "repeat(10, 1fr)", 
+      gap: "0.2rem", 
+      marginTop: "0.5rem", 
+      marginBottom: "0.5rem", 
+      maxHeight: "150px", 
+      overflowY: "auto", 
+      padding: "0.5rem", 
+      background: "white", 
+      borderRadius: "6px", 
+      border: "1px solid #e0e0e0" 
+    },
+    numberButton: (isSelected) => ({ 
+      aspectRatio: "1", 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      background: isSelected ? "linear-gradient(135deg, #667eea, #764ba2)" : "#f0f0f0", 
+      color: isSelected ? "white" : "#333", 
+      border: isSelected ? "none" : "1px solid #ccc", 
+      borderRadius: "4px", 
+      cursor: "pointer", 
+      fontSize: "clamp(0.6rem, 2.5vw, 0.7rem)", 
+      fontWeight: isSelected ? "bold" : "normal", 
+      transition: "all 0.2s ease" 
+    }),
+    favoriteStats: { marginTop: "0.5rem", padding: "0.5rem", background: "#e8f4fd", borderRadius: "6px", fontSize: "0.8rem" },
+    statsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.3rem", marginTop: "0.3rem" },
+    statItem: { background: "white", padding: "0.3rem", borderRadius: "4px", textAlign: "center", boxShadow: "0 1px 2px rgba(0,0,0,0.1)" },
+    favoriteListsSection: { marginTop: "0.75rem", padding: "0.5rem", background: "#fff3e0", borderRadius: "6px" },
+    listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem", background: "white", borderRadius: "4px", marginBottom: "0.3rem", cursor: "pointer", border: "1px solid #e0e0e0" },
+    listName: { fontWeight: "bold", fontSize: "0.8rem" },
+    listDetails: { fontSize: "0.7rem", color: "#666" },
+    listActions: { display: "flex", gap: "0.2rem" },
+    smallButton: { padding: "0.2rem 0.4rem", background: "#667eea", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "0.7rem" },
+    generateButton: { width: "100%", padding: "0.6rem", border: "none", borderRadius: "6px", background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", fontSize: "0.9rem", cursor: "pointer", transition: "all 0.3s ease", marginTop: "0.5rem" },
+    randomBallButton: { width: "100%", padding: "0.6rem", border: "none", borderRadius: "6px", background: "#4CAF50", color: "white", fontSize: "0.9rem", cursor: "pointer", marginBottom: "0.5rem" },
+    newRoundButton: { width: "100%", padding: "0.6rem", border: "none", borderRadius: "6px", background: "#ff9800", color: "white", fontSize: "0.9rem", cursor: "pointer", marginBottom: "0.5rem", transition: "all 0.3s ease", fontWeight: "bold" },
+    recordResultButton: { width: "100%", padding: "0.6rem", border: "none", borderRadius: "6px", background: "#9C27B0", color: "white", fontSize: "0.9rem", cursor: "pointer", marginBottom: "0.5rem", transition: "all 0.3s ease", fontWeight: "bold" },
+    resetButton: { width: "100%", padding: "0.6rem", border: "none", borderRadius: "6px", background: "#ff4757", color: "white", fontSize: "0.9rem", cursor: "pointer" },
+    roundHistorySection: { background: "white", borderRadius: "12px", padding: "1rem", marginBottom: "1.5rem" },
+    roundHistoryHeader: { display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" },
+    roundHistoryTitle: { margin: 0, fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" },
+    roundHistoryControls: { display: "flex", gap: "0.5rem", justifyContent: "center" },
+    roundTabs: { 
+      display: "flex", 
+      gap: "0.5rem", 
+      marginBottom: "1rem", 
+      flexWrap: "wrap", 
+      maxHeight: "120px", 
+      overflowY: "auto", 
+      padding: "0.5rem", 
+      background: "#f5f5f5", 
+      borderRadius: "8px",
+      justifyContent: "center"
+    },
+    roundTab: (isActive) => ({ 
+      padding: "0.4rem 0.8rem", 
+      background: isActive ? "linear-gradient(135deg, #667eea, #764ba2)" : "white", 
+      color: isActive ? "white" : "#333", 
+      border: "none", 
+      borderRadius: "16px", 
+      cursor: "pointer", 
+      fontSize: "0.75rem", 
+      fontWeight: isActive ? "bold" : "normal", 
+      boxShadow: "0 1px 2px rgba(0,0,0,0.1)" 
+    }),
+    roundDetail: { background: "#f8f9fa", borderRadius: "8px", padding: "1rem" },
+    roundDetailHeader: { display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" },
+    roundStatsGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem", marginBottom: "1rem" },
+    roundStatCard: { background: "white", padding: "0.75rem", borderRadius: "6px", textAlign: "center", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" },
+    roundStatValue: { fontSize: "1.2rem", fontWeight: "bold", color: "#667eea" },
+    roundStatLabel: { fontSize: "0.7rem", color: "#666" },
+    roundNumbersGrid: { 
+      display: "grid", 
+      gridTemplateColumns: "repeat(10, 1fr)", 
+      gap: "0.2rem", 
+      marginTop: "0.75rem", 
+      marginBottom: "0.75rem" 
+    },
+    roundNumberItem: (isFavorite) => ({ 
+      aspectRatio: "1", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      background: "linear-gradient(135deg, #667eea, #764ba2)", 
+      color: "white", 
+      borderRadius: "4px", 
+      fontSize: "clamp(0.6rem, 2vw, 0.7rem)", 
+      fontWeight: "bold", 
+      border: isFavorite ? "2px solid #ffd700" : "none", 
+      padding: "0.2rem" 
+    }),
+    roundNumberEmpty: { aspectRatio: "1", background: "#e0e0e0", borderRadius: "4px" },
+    roundColumnStats: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem", marginTop: "0.75rem" },
+    roundColumnStat: { padding: "0.4rem", background: "white", borderRadius: "6px", textAlign: "center", fontSize: "0.7rem" },
+    comparisonSection: { marginTop: "1rem", padding: "0.75rem", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: "8px", color: "white" },
+    comparisonGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem", marginTop: "0.75rem" },
+    comparisonItem: { background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "6px", fontSize: "0.75rem" },
+    autoAdvanceToggle: { display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", padding: "0.5rem", background: "#f5f5f5", borderRadius: "6px", fontSize: "0.8rem" },
+    roundFrequencySection: { background: "white", borderRadius: "12px", padding: "1rem", marginBottom: "1.5rem" },
+    roundFrequencyHeader: { display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" },
+    roundFrequencyTitle: { margin: 0, fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" },
+    roundStats: { display: "flex", gap: "0.5rem", flexWrap: "wrap", background: "#f5f5f5", padding: "0.5rem", borderRadius: "20px", fontSize: "0.7rem", justifyContent: "center" },
+    roundStat: { display: "flex", alignItems: "center", gap: "0.2rem" },
+    roundFrequencyGrid: { 
+      display: "grid", 
+      gridTemplateColumns: "repeat(10, 1fr)", 
+      gap: "0.3rem", 
+      marginBottom: "0.75rem" 
+    },
+    roundFrequencyItem: (count, isSelected, isFavorite) => ({ 
+      aspectRatio: "1", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      background: isSelected ? "#ffeb3b" : count > 0 ? "#e8f4fd" : "white", 
+      border: isFavorite ? "2px solid #ffd700" : count > 0 ? "2px solid #667eea" : "2px solid #e0e0e0", 
+      borderRadius: "6px", 
+      cursor: "pointer", 
+      transition: "all 0.2s ease", 
+      fontSize: "clamp(0.6rem, 2vw, 0.7rem)", 
+      fontWeight: count > 0 ? "bold" : "normal", 
+      color: count > 0 ? "#333" : "#999", 
+      position: "relative" 
+    }),
+    frequencyBadge: { fontSize: "0.5rem", background: "#667eea", color: "white", padding: "0.1rem 0.2rem", borderRadius: "8px", marginTop: "0.1rem" },
+    selectedNumberDetail: { marginTop: "0.75rem", padding: "0.75rem", background: "#f5f5f5", borderRadius: "6px", border: "2px solid #667eea" },
+    columnLegend: { display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap", justifyContent: "center" },
+    legendItem: (color) => ({ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.7rem", padding: "0.2rem 0.5rem", background: "white", borderRadius: "16px", borderLeft: `3px solid ${color}` }),
+    ballsSection: { background: "white", borderRadius: "12px", padding: "1rem", marginBottom: "1.5rem" },
+    ballsGrid: { 
+      display: "grid", 
+      gridTemplateColumns: "repeat(10, 1fr)", 
+      gap: "0.3rem" 
+    },
+    ball: (active) => ({ 
+      aspectRatio: "1", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      background: active ? "#ffeb3b" : "white", 
+      border: active ? "2px solid #fbc02d" : "2px solid #e0e0e0", 
+      borderRadius: "50%", 
+      cursor: "pointer", 
+      transition: "all 0.3s ease", 
+      fontSize: "clamp(0.6rem, 2.5vw, 0.8rem)", 
+      padding: "0.2rem", 
+      position: "relative" 
+    }),
+    favoriteBall: { border: "2px solid #ffd700", boxShadow: "0 0 8px rgba(255,215,0,0.5)" },
+    cardSectionTabs: { display: "flex", gap: "0.75rem", marginBottom: "1.5rem", justifyContent: "center", flexDirection: "column", alignItems: "center" },
+    cardSectionTab: (isActive) => ({ 
+      padding: "0.6rem 1rem", 
+      border: "none", 
+      borderRadius: "10px", 
+      background: isActive ? "linear-gradient(135deg, #667eea, #764ba2)" : "white", 
+      color: isActive ? "white" : "#333", 
+      fontSize: "clamp(0.85rem, 4vw, 1rem)", 
+      fontWeight: "bold", 
+      cursor: "pointer", 
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)", 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "0.5rem", 
+      transition: "all 0.3s ease",
+      width: "100%",
+      justifyContent: "center"
+    }),
+    cardsContainer: { 
+      display: "grid", 
+      gridTemplateColumns: "1fr", 
+      gap: "1rem" 
+    },
+    cardContainer: { 
+      perspective: "1000px", 
+      height: "auto", 
+      cursor: "pointer", 
+      position: "relative",
+      width: "100%"
+    },
+    cardInner: (isFlipped) => ({ 
+      position: "relative", 
+      width: "100%", 
+      height: "100%", 
+      transition: "transform 0.6s", 
+      transformStyle: "preserve-3d", 
+      transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" 
+    }),
+    cardFront: { 
+      position: "relative", 
+      width: "100%", 
+      height: "100%", 
+      backfaceVisibility: "hidden", 
+      WebkitBackfaceVisibility: "hidden" 
+    },
+    cardBack: { 
+      position: "absolute", 
+      top: 0, 
+      left: 0, 
+      width: "100%", 
+      height: "100%", 
+      backfaceVisibility: "hidden", 
+      WebkitBackfaceVisibility: "hidden", 
+      transform: "rotateY(180deg)", 
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", 
+      borderRadius: "10px", 
+      padding: "0.75rem", 
+      boxSizing: "border-box", 
+      display: "flex", 
+      flexDirection: "column", 
+      border: "2px solid #ffd700", 
+      boxShadow: "0 8px 20px rgba(0,0,0,0.2)" 
+    },
+    bingoCard: (isWinner, isPinned, hasFavorites) => ({ 
+      background: "white", 
+      border: isWinner ? "3px solid #ff4757" : isPinned ? "3px solid #ffd700" : "2px solid #333", 
+      borderRadius: "10px", 
+      padding: "1rem 0.75rem", 
+      transition: "all 0.3s ease", 
+      width: "100%", 
+      height: "100%", 
+      boxSizing: "border-box", 
+      boxShadow: "0 2px 6px rgba(0,0,0,0.1)" 
+    }),
+    cardLabel: { 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "0.3rem", 
+      marginBottom: "0.5rem", 
+      padding: "0.4rem", 
+      background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)", 
+      borderRadius: "6px", 
+      fontSize: "0.75rem", 
+      cursor: "pointer", 
+      transition: "all 0.2s ease" 
+    },
+    labelEmoji: { fontSize: "1rem" },
+    labelName: { fontWeight: "bold", flex: 1, fontSize: "0.8rem" },
+    labelEditIcon: { opacity: 0.5, fontSize: "0.7rem" },
+    bingoHeader: { 
+      display: "flex", 
+      justifyContent: "space-around", 
+      marginBottom: "0.3rem", 
+      fontSize: "clamp(0.9rem, 4vw, 1.2rem)", 
+      fontWeight: "bold", 
+      color: "#333", 
+      borderBottom: "2px solid #333", 
+      paddingBottom: "0.3rem" 
+    },
+    bingoLetter: { 
+      width: "clamp(30px, 10vw, 40px)", 
+      textAlign: "center" 
+    },
+    bingoGrid: { 
+      display: "flex", 
+      flexDirection: "column", 
+      gap: "0.2rem", 
+      marginBottom: "0.3rem" 
+    },
+    bingoRow: { 
+      display: "flex", 
+      justifyContent: "space-around" 
+    },
+    bingoCell: (isHighlighted, isFree, isFavorite, hasError) => ({ 
+      width: "clamp(35px, 10vw, 45px)", 
+      height: "clamp(35px, 10vw, 45px)", 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      border: hasError ? "2px solid #ff4757" : (isFavorite ? "2px solid #ffd700" : "1px solid #333"), 
+      borderRadius: "4px", 
+      background: isHighlighted ? "#ffeb3b" : isFree ? "#f0f0f0" : "white", 
+      fontWeight: "bold", 
+      fontSize: "clamp(0.7rem, 3vw, 0.9rem)", 
+      cursor: "default", 
+      position: "relative", 
+      color: "#333" 
+    }),
+    favoriteStar: { position: "absolute", top: "-3px", right: "-3px", fontSize: "0.5rem", color: "#ffd700" },
+    editInput: (hasError) => ({ 
+      width: "clamp(35px, 10vw, 40px)", 
+      height: "clamp(35px, 10vw, 40px)", 
+      textAlign: "center", 
+      border: hasError ? "2px solid #ff4757" : "2px solid #667eea", 
+      borderRadius: "4px", 
+      fontSize: "clamp(0.7rem, 3vw, 0.9rem)", 
+      outline: "none", 
+      background: hasError ? "#fff5f5" : "white" 
+    }),
+    cardActions: { 
+      position: "absolute", 
+      top: "50%", 
+      left: "50%", 
+      transform: "translate(-50%, -50%)", 
+      display: "flex", 
+      gap: "0.3rem", 
+      zIndex: 20, 
+      background: "rgba(255, 255, 255, 0.95)", 
+      padding: "0.5rem 0.75rem", 
+      borderRadius: "30px", 
+      boxShadow: "0 4px 12px rgba(0,0,0,0.2)", 
+      border: "2px solid #667eea", 
+      opacity: 0, 
+      transition: "opacity 0.3s ease", 
+      pointerEvents: "none" 
+    },
+    actionButton: { 
+      width: "32px", 
+      height: "32px", 
+      borderRadius: "50%", 
+      border: "none", 
+      background: "white", 
+      boxShadow: "0 1px 4px rgba(0,0,0,0.15)", 
+      cursor: "pointer", 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      fontSize: "1rem", 
+      transition: "all 0.2s ease", 
+      pointerEvents: "auto" 
+    },
+    pinButton: (isPinned) => ({ 
+      background: isPinned ? "#ffd700" : "white", 
+      color: isPinned ? "white" : "#333", 
+      border: isPinned ? "2px solid #ffd700" : "2px solid #e0e0e0" 
+    }),
     editButton: { background: "#667eea", color: "white", border: "2px solid #667eea" },
     deleteButton: { background: "#ff4757", color: "white", border: "2px solid #ff4757" },
     saveButton: { background: "#4CAF50", color: "white", border: "2px solid #4CAF50" },
     cancelButton: { background: "#999", color: "white", border: "2px solid #999" },
-    flipHint: { position: "absolute", bottom: "5px", right: "5px", fontSize: "0.7rem", color: "#999", background: "rgba(255,255,255,0.8)", padding: "2px 5px", borderRadius: "10px", zIndex: 10 },
-    patternsList: { display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem", overflowY: "auto", maxHeight: "250px", padding: "0.5rem" },
-    patternItem: { display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem", background: "white", borderRadius: "8px", fontSize: "0.9rem", borderLeft: "4px solid #ffd700", boxShadow: "0 2px 5px rgba(0,0,0,0.1)", transition: "transform 0.2s ease", cursor: "pointer" },
-    backHeader: { textAlign: "center", marginBottom: "1rem", fontWeight: "bold", color: "white", fontSize: "1.1rem", borderBottom: "2px solid #ffd700", paddingBottom: "0.5rem" },
-    noPatterns: { textAlign: "center", color: "rgba(255,255,255,0.7)", fontStyle: "italic", padding: "2rem", background: "rgba(0,0,0,0.2)", borderRadius: "8px" },
-    cardNumber: { position: "absolute", top: "5px", left: "5px", fontSize: "0.8rem", color: "white", background: "rgba(0,0,0,0.3)", padding: "2px 8px", borderRadius: "10px", zIndex: 20 },
-    patternCount: { background: "#ffd700", color: "#333", borderRadius: "12px", padding: "0.2rem 0.5rem", fontSize: "0.8rem", fontWeight: "bold", marginLeft: "auto" },
-    modal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
-    modalContent: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 5vw, 2rem)", maxWidth: "800px", width: "90%", maxHeight: "80vh", overflowY: "auto" },
-    savedCardsModal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
-    savedCardsContent: { background: "white", borderRadius: "16px", padding: "clamp(1rem, 5vw, 2rem)", maxWidth: "800px", width: "90%", maxHeight: "80vh", overflowY: "auto" },
-    savedCardItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer", transition: "background 0.2s ease" },
+    labelButton: { background: "#ffd700", color: "#333", border: "2px solid #ffd700" },
+    flipHint: { position: "absolute", bottom: "3px", right: "3px", fontSize: "0.6rem", color: "#999", background: "rgba(255,255,255,0.8)", padding: "2px 4px", borderRadius: "8px", zIndex: 10 },
+    patternsList: { display: "flex", flexDirection: "column", gap: "0.3rem", marginTop: "0.3rem", overflowY: "auto", maxHeight: "200px", padding: "0.3rem" },
+    patternItem: { display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.5rem", background: "white", borderRadius: "6px", fontSize: "0.75rem", borderLeft: "3px solid #ffd700", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "transform 0.2s ease", cursor: "pointer" },
+    backHeader: { textAlign: "center", marginBottom: "0.75rem", fontWeight: "bold", color: "white", fontSize: "0.9rem", borderBottom: "2px solid #ffd700", paddingBottom: "0.3rem" },
+    noPatterns: { textAlign: "center", color: "rgba(255,255,255,0.7)", fontStyle: "italic", padding: "1rem", background: "rgba(0,0,0,0.2)", borderRadius: "6px", fontSize: "0.75rem" },
+    cardNumber: { position: "absolute", top: "3px", left: "3px", fontSize: "0.65rem", color: "white", background: "rgba(0,0,0,0.3)", padding: "2px 6px", borderRadius: "8px", zIndex: 20 },
+    patternCount: { background: "#ffd700", color: "#333", borderRadius: "10px", padding: "0.1rem 0.4rem", fontSize: "0.65rem", fontWeight: "bold", marginLeft: "auto" },
+    modal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "1rem" },
+    modalContent: { background: "white", borderRadius: "12px", padding: "1rem", maxWidth: "95%", width: "100%", maxHeight: "90vh", overflowY: "auto" },
+    profileModal: { background: "white", borderRadius: "16px", padding: "1.5rem", maxWidth: "90%", width: "100%", position: "relative", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" },
+    profileHeader: { textAlign: "center", marginBottom: "1.5rem" },
+    profileAvatar: { fontSize: "3rem", marginBottom: "0.75rem" },
+    profileName: { fontSize: "1.3rem", fontWeight: "bold", marginBottom: "0.3rem" },
+    profileLevel: { background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white", display: "inline-block", padding: "0.2rem 0.8rem", borderRadius: "16px", fontSize: "0.8rem", marginBottom: "0.75rem" },
+    profileStats: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem", marginBottom: "1.5rem" },
+    profileStat: { background: "#f5f5f5", padding: "0.75rem", borderRadius: "8px", textAlign: "center" },
+    profileStatValue: { fontSize: "1.2rem", fontWeight: "bold", color: "#667eea" },
+    profileStatLabel: { fontSize: "0.7rem", color: "#666" },
+    profileFooter: { borderTop: "1px solid #e0e0e0", paddingTop: "0.75rem", textAlign: "center", color: "#999", fontSize: "0.75rem" },
+    labelModal: { background: "white", borderRadius: "16px", padding: "1.5rem", maxWidth: "90%", width: "100%" },
+    emojiPicker: { display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "0.3rem", marginBottom: "0.75rem", padding: "0.75rem", background: "#f5f5f5", borderRadius: "8px" },
+    emojiOption: { fontSize: "1.2rem", padding: "0.3rem", textAlign: "center", cursor: "pointer", borderRadius: "6px", transition: "all 0.2s ease" },
+    savedCardsModal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "1rem" },
+    savedCardsContent: { background: "white", borderRadius: "12px", padding: "1rem", maxWidth: "95%", width: "100%", maxHeight: "90vh", overflowY: "auto" },
+    savedCardItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer", transition: "background 0.2s ease", gap: "0.5rem" },
     savedCardInfo: { flex: 1 },
-    savedCardDate: { fontSize: "0.8rem", color: "#999" },
-    savedCardPatterns: { display: "flex", gap: "0.3rem", flexWrap: "wrap", marginTop: "0.3rem" },
-    savedCardPatternTag: { background: "#667eea", color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.7rem" },
-    closeButton: { padding: "0.5rem 1rem", background: "#ff4757", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", marginTop: "1rem" },
-    exportButton: { padding: "0.5rem 1rem", background: "#4CAF50", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", marginLeft: "0.5rem" },
-    resultItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer" },
-    resultHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" },
-    winnerBadge: { background: "#ff4757", color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem" },
-    noteInput: { width: "100%", padding: "0.5rem", border: "1px solid #e0e0e0", borderRadius: "8px", marginTop: "0.5rem", marginBottom: "0.5rem" },
-    statsContainer: { background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", padding: "1.5rem", borderRadius: "16px", marginBottom: "1rem", color: "white" },
-    statsGridMain: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem", marginTop: "1rem" },
-    statBox: { background: "rgba(255,255,255,0.2)", padding: "1rem", borderRadius: "12px", textAlign: "center" },
-    historyItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", flexWrap: "wrap", gap: "0.5rem" },
-    historyPattern: { display: "flex", alignItems: "center", gap: "0.5rem" },
-    ballRecordItem: { padding: "1rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer" },
-    ballRecordHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" },
-    ballRecordName: { fontWeight: "bold", fontSize: "1.1rem" },
-    ballRecordCount: { background: "#667eea", color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem" },
-    ballRecordSequence: { color: "#666", fontSize: "0.85rem", marginTop: "0.25rem", wordBreak: "break-all" }
+    savedCardDate: { fontSize: "0.7rem", color: "#999" },
+    savedCardPatterns: { display: "flex", gap: "0.2rem", flexWrap: "wrap", marginTop: "0.2rem" },
+    savedCardPatternTag: { background: "#667eea", color: "white", padding: "0.15rem 0.4rem", borderRadius: "10px", fontSize: "0.6rem" },
+    closeButton: { padding: "0.4rem 0.8rem", background: "#ff4757", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", marginTop: "0.75rem", fontSize: "0.85rem" },
+    exportButton: { padding: "0.4rem 0.8rem", background: "#4CAF50", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "0.8rem" },
+    resultItem: { padding: "0.75rem", borderBottom: "1px solid #e0e0e0", cursor: "pointer" },
+    resultHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem", flexWrap: "wrap", gap: "0.3rem" },
+    winnerBadge: { background: "#ff4757", color: "white", padding: "0.15rem 0.4rem", borderRadius: "10px", fontSize: "0.7rem" },
+    noteInput: { width: "100%", padding: "0.4rem", border: "1px solid #e0e0e0", borderRadius: "6px", marginTop: "0.3rem", marginBottom: "0.3rem", fontSize: "0.8rem" },
+    statsContainer: { background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", padding: "1rem", borderRadius: "12px", marginBottom: "0.75rem", color: "white" },
+    statsGridMain: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem", marginTop: "0.75rem" },
+    statBox: { background: "rgba(255,255,255,0.2)", padding: "0.75rem", borderRadius: "8px", textAlign: "center", fontSize: "0.8rem" },
+    historyItem: { padding: "0.75rem", borderBottom: "1px solid #e0e0e0", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", gap: "0.5rem", flexWrap: "wrap" },
+    historyPattern: { display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.8rem" }
   };
 
-  // Add keyframes animation and hover styles
-  const styleElement = document.createElement('style');
-  styleElement.textContent = `
-    @keyframes winnerGlow { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 50% { box-shadow: 0 0 20px 0 rgba(255, 71, 87, 0.4); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } }
-    .card-container:hover .card-actions { opacity: 1 !important; }
-    .action-button:hover { transform: scale(1.1) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important; }
-    .new-round-button:hover { background: #f57c00 !important; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-    .record-result-button:hover { background: #7B1FA2 !important; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-    .number-button:hover { transform: scale(1.1); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    .column-button:hover { background: #667eea; color: white; }
-    .list-item:hover { background: #f5f5f5; }
-    .drag-handle:active { cursor: grabbing; }
-    .quick-button:active { transform: scale(0.95); }
-    .recent-number:active { transform: scale(0.95); }
-    
-    /* Mobile optimizations */
-    @media (max-width: 768px) {
-      .card-actions { opacity: 1 !important; }
-      .action-button { width: 44px; height: 44px; font-size: 1.2rem; }
-      .card-actions { padding: 0.5rem 0.75rem; }
-      .patternButton { padding: 0.5rem 1rem; }
-      .headerButtons button { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-      .floatingPanel { min-width: 280px; }
-      .quickButton { padding: 8px 4px; }
-      .recentNumber { padding: 4px 10px; font-size: 12px; }
-    }
-  `;
-  document.head.appendChild(styleElement);
+  // Media query for tablet and desktop
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      @keyframes winnerGlow {
+        0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); }
+        50% { box-shadow: 0 0 20px 0 rgba(255, 71, 87, 0.4); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); }
+      }
+      .card-container:hover .card-actions { opacity: 1 !important; }
+      .action-button:hover { transform: scale(1.1) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important; }
+      .new-round-button:hover { background: #f57c00 !important; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+      .record-result-button:hover { background: #7B1FA2 !important; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+      .number-button:hover { transform: scale(1.05); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+      .column-button:hover { background: #667eea; color: white; }
+      .list-item:hover { background: #f5f5f5; }
+      .card-label:hover { background: linear-gradient(135deg, #e0e7ff 0%, #d1d5ff 100%) !important; }
+      .emoji-option:hover { background: #667eea; color: white; transform: scale(1.05); }
+      .round-frequency-item:hover { transform: scale(1.05); box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 10; }
+      .round-tab:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+      .card-section-tab:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+      
+      /* Responsive media queries */
+      @media (min-width: 768px) {
+        .header-content {
+          flex-direction: row !important;
+          justify-content: space-between !important;
+          padding: 1rem 2rem !important;
+        }
+        .controls-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+        }
+        .cards-container {
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)) !important;
+        }
+        .card-section-tabs {
+          flex-direction: row !important;
+          justify-content: center !important;
+        }
+        .card-section-tab {
+          width: auto !important;
+        }
+        .round-history-header {
+          flex-direction: row !important;
+          justify-content: space-between !important;
+        }
+        .round-frequency-header {
+          flex-direction: row !important;
+          justify-content: space-between !important;
+        }
+        .round-detail-header {
+          flex-direction: row !important;
+          justify-content: space-between !important;
+        }
+        .pattern-button {
+          min-width: 100px !important;
+        }
+        .number-selector-grid {
+          grid-template-columns: repeat(15, 1fr) !important;
+        }
+        .round-frequency-grid, .round-numbers-grid, .balls-grid {
+          grid-template-columns: repeat(15, 1fr) !important;
+        }
+      }
+      
+      @media (min-width: 1024px) {
+        .controls-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+        }
+        .main {
+          padding: 2rem !important;
+        }
+        .control-card {
+          padding: 1.5rem !important;
+        }
+      }
+      
+      /* Touch device optimizations */
+      @media (hover: none) {
+        .card-actions {
+          opacity: 1 !important;
+          background: rgba(255, 255, 255, 0.98) !important;
+        }
+        .card-container {
+          cursor: pointer !important;
+        }
+      }
+      
+      /* Prevent zoom on input focus for mobile */
+      @media (max-width: 768px) {
+        input, select, textarea, button {
+          font-size: 16px !important;
+        }
+      }
+      
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
+      }
+      
+      /* Better touch targets */
+      button, .number-button, .round-frequency-item, .ball {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      @media (max-width: 768px) {
+        button, .number-button, .round-frequency-item, .ball {
+          min-height: 40px;
+          min-width: 40px;
+        }
+      }
+    `;
+    document.head.appendChild(styleElement);
+    return () => { document.head.removeChild(styleElement); };
+  }, []);
 
   return (
-    <div style={styles.container} onMouseMove={handleDragMove} onMouseUp={handleDragEnd}>
+    <div style={styles.container}>
       <header style={styles.header}>
-        <div style={styles.headerContent}>
-          <h1 style={styles.title}>🎯 Bingo Pattern Analyzer (44 Balls)</h1>
+        <div style={styles.headerContent} className="header-content">
+          <h1 style={styles.title}>🎯 Bingo Pattern Analyzer</h1>
           <div style={styles.headerButtons}>
-            <button onClick={() => setShowBallRecords(true)} style={styles.ballRecordsButton}>
-              🎱 Ball Records ({ballRecords.length})
+            <button onClick={() => setShowProfileModal(true)} style={styles.profileButton}>
+              <span>{profileData.avatar}</span><span>{profileData.name}</span>
             </button>
-            <button onClick={() => setShowHistory(true)} style={styles.historyButton}>
-              📜 History ({gameHistory.length})
+            <button onClick={() => setShowRoundFrequency(!showRoundFrequency)} style={styles.roundFrequencyButton}>
+              📊 Freq {showRoundFrequency ? '▼' : '▶'}
+              {roundFrequency.length > 0 && (<span style={{ position: "absolute", top: "-8px", right: "-8px", background: "#ff4757", color: "white", borderRadius: "20px", padding: "0.2rem 0.5rem", fontSize: "0.7rem", fontWeight: "bold" }}>R{currentRound}</span>)}
             </button>
-            <button onClick={() => setShowResults(true)} style={styles.resultsButton}>
-              🏆 Results ({gameResults.length})
+            <button onClick={() => setShowRoundHistory(!showRoundHistory)} style={styles.roundHistoryButton}>
+              📜 History {showRoundHistory ? '▼' : '▶'}
+              {roundHistory.length > 0 && (<span style={{ position: "absolute", top: "-8px", right: "-8px", background: "#ff4757", color: "white", borderRadius: "20px", padding: "0.2rem 0.5rem", fontSize: "0.7rem", fontWeight: "bold" }}>{roundHistory.length}</span>)}
             </button>
-            <button onClick={() => setShowSavedCards(true)} style={styles.savedButton}>
-              💾 Saved Cards ({savedCards.length})
-            </button>
-            <button onClick={() => setShowFloatingPanel(!showFloatingPanel)} style={styles.floatingPanelToggle}>
-              {showFloatingPanel ? "🔽 Hide Ball Panel" : "🔼 Show Ball Panel"}
-            </button>
-            <button onClick={goBack} style={styles.backButton}>← Back</button>
+            <button onClick={() => setShowHistory(true)} style={styles.historyButton}>📜 ({gameHistory.length})</button>
+            <button onClick={() => setShowResults(true)} style={styles.resultsButton}>🏆 ({gameResults.length})</button>
+            <button onClick={() => setShowSavedCards(true)} style={styles.savedButton}>💾 ({savedCards.length})</button>
+            <button onClick={onBack} style={styles.backButton}>← Back</button>
           </div>
         </div>
       </header>
 
-      {/* Floating Ball Input Panel with Touch Support */}
-      {showFloatingPanel && (
-        <div 
-          ref={panelRef}
-          style={{
-            ...styles.floatingPanel,
-            top: panelPosition.y,
-            left: panelPosition.x
-          }}
-        >
-          <div 
-            className="drag-handle" 
-            style={styles.dragHandle} 
-            onMouseDown={handleDragStart}
-            onTouchStart={handleDragStart}
-          >
-            <span>🎱 Quick Ball Caller</span>
-            <div>
-              <span style={{ fontSize: "12px", marginRight: "8px" }}>📌 Drag to move</span>
-              <button 
-                onClick={() => setShowFloatingPanel(false)}
-                style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "16px", padding: "4px" }}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-          <div style={styles.panelContent}>
-            <div style={styles.numberInput}>
-              <input
-                type="number"
-                placeholder="Enter number (1-75)"
-                value={inputNumber}
-                onChange={(e) => setInputNumber(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleNumberInput(e)}
-                style={styles.input}
-                inputMode="numeric"
-                pattern="[0-9]*"
-              />
-              <button onClick={handleNumberInput} style={styles.callButton}>Call</button>
-            </div>
-            
-            <div style={styles.quickButtons}>
-              <button onClick={() => quickCallNumber(7)} style={styles.quickButton}>7</button>
-              <button onClick={() => quickCallNumber(11)} style={styles.quickButton}>11</button>
-              <button onClick={() => quickCallNumber(23)} style={styles.quickButton}>23</button>
-              <button onClick={() => quickCallNumber(34)} style={styles.quickButton}>34</button>
-              <button onClick={() => quickCallNumber(42)} style={styles.quickButton}>42</button>
-              <button onClick={() => quickCallNumber(50)} style={styles.quickButton}>50</button>
-              <button onClick={() => quickCallNumber(67)} style={styles.quickButton}>67</button>
-              <button onClick={() => quickCallNumber(69)} style={styles.quickButton}>69</button>
-              <button onClick={() => quickCallNumber(75)} style={styles.quickButton}>75</button>
-              <button onClick={selectRandomBall} style={styles.quickButton}>🎲 Random</button>
-            </div>
-            
-            <div style={styles.recentSection}>
-              <div style={styles.recentTitle}>
-                <span>📋 Recent Calls</span>
-                {recentCalls.length > 0 && (
-                  <button onClick={clearRecentCalls} style={{ fontSize: "10px", background: "none", border: "none", color: "#999", cursor: "pointer", padding: "4px" }}>
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div style={styles.recentNumbers}>
-                {recentCalls.length === 0 ? (
-                  <span style={{ fontSize: "12px", color: "#999" }}>No recent calls</span>
-                ) : (
-                  recentCalls.map((num, idx) => (
-                    <span key={idx} onClick={() => quickCallNumber(num)} style={styles.recentNumber}>
-                      {num}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-            
-            <div style={{ marginTop: "12px", fontSize: "11px", color: "#999", textAlign: "center" }}>
-              <span style={{ ...styles.statusBadge, background: "#ffeb3b" }}></span> Called this round
-              <span style={{ ...styles.statusBadge, background: "#e0e0e0", marginLeft: "8px" }}></span> Not called
-            </div>
-          </div>
-        </div>
-      )}
-
       <main style={styles.main}>
-        {/* Pattern Selector */}
         <div style={styles.patternSelector}>
-          {[
-            { id: "blackout", label: "Blackout", icon: "⬛" },
-            { id: "t", label: "T Pattern", icon: "📐" },
-            { id: "x", label: "X Pattern", icon: "❌" },
-            { id: "twoLines", label: "2 Lines", icon: "📏" },
-            { id: "threeLines", label: "3 Lines", icon: "📊" },
-            { id: "fourLines", label: "4 Lines", icon: "📈" },
-            { id: "fourCorners", label: "4 Corners", icon: "🔲" },
-            { id: "sideToSide", label: "Side to Side", icon: "⬆️⬇️" },
-            { id: "emptyCross", label: "Empty Cross", icon: "✖️" }
-          ].map((pattern) => (
+          {PATTERNS.map((pattern) => (
             <button key={pattern.id} onClick={() => setCurrentPattern(pattern.id)} style={styles.patternButton(currentPattern === pattern.id)}>
-              <span>{pattern.icon}</span>
-              <span>{pattern.label}</span>
-              {winners[pattern.id]?.length > 0 && (<span style={{ position: "absolute", top: "-8px", right: "-8px", background: "#ff4757", color: "white", borderRadius: "20px", padding: "0.2rem 0.5rem", fontSize: "0.8rem", fontWeight: "bold" }}>{winners[pattern.id].length}</span>)}
+              <span>{pattern.icon}</span><span>{pattern.label}</span>
+              {winners[pattern.id]?.length > 0 && (<span style={{ position: "absolute", top: "-6px", right: "-6px", background: "#ff4757", color: "white", borderRadius: "20px", padding: "0.15rem 0.4rem", fontSize: "0.65rem", fontWeight: "bold" }}>{winners[pattern.id].length}</span>)}
             </button>
           ))}
         </div>
 
-        {/* Controls */}
-        <div style={styles.controlsGrid}>
+        <div style={styles.controlsGrid} className="controls-grid">
           <div style={styles.controlCard}>
-            <h3 style={{ margin: "0 0 1rem 0" }}>📋 Card Generation</h3>
+            <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "1rem" }}>📋 Card Generation</h3>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Number of Cards</label>
-              <input type="number" value={numCardsInput} onChange={(e) => setNumCardsInput(Number(e.target.value))} min="1" max={maxCards} style={{ ...styles.input, width: "100%" }} />
-            </div>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Favored Balls Range</label>
-              <input type="number" value={ballsCalledInput} onChange={(e) => setBallsCalledInput(Number(e.target.value))} min="1" max="44" style={{ ...styles.input, width: "100%" }} />
+              <input type="number" value={numCardsInput} onChange={(e) => setNumCardsInput(Number(e.target.value))} min="1" max={CONSTANTS.MAX_CARDS} style={styles.input} />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Target Win %</label>
-              <input type="number" value={targetWinPercentage} onChange={(e) => setTargetWinPercentage(Number(e.target.value))} min="0" max="100" style={{ ...styles.input, width: "100%" }} />
+              <input type="number" value={targetWinPercentage} onChange={(e) => setTargetWinPercentage(Number(e.target.value))} min="0" max="100" style={styles.input} />
             </div>
-            
+
             <div style={styles.favoriteNumbersContainer}>
               <div style={styles.favoriteHeader} onClick={() => setShowNumberSelector(!showNumberSelector)}>
-                <h4 style={styles.favoriteTitle}>⭐ Favorite Numbers (1-75)</h4>
-                <button style={styles.toggleButton}>{showNumberSelector ? "▼" : "▶"} Select</button>
+                <h4 style={styles.favoriteTitle}>⭐ Favorite Numbers</h4>
+                <button style={styles.toggleButton}>{showNumberSelector ? "▼" : "▶"}</button>
               </div>
               <div style={styles.columnSelector}>
-                <button onClick={() => selectAllInColumn('B')} style={styles.columnButton}>B (1-15)</button>
-                <button onClick={() => selectAllInColumn('I')} style={styles.columnButton}>I (16-30)</button>
-                <button onClick={() => selectAllInColumn('N')} style={styles.columnButton}>N (31-45)</button>
-                <button onClick={() => selectAllInColumn('G')} style={styles.columnButton}>G (46-60)</button>
-                <button onClick={() => selectAllInColumn('O')} style={styles.columnButton}>O (61-75)</button>
+                {['B','I','N','G','O'].map(col => (
+                  <button key={col} onClick={() => selectAllInColumn(col)} style={styles.columnButton}>{col}</button>
+                ))}
               </div>
-              <input type="text" placeholder="🔍 Search numbers (e.g., 7, even, odd, prime)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
-              {showNumberSelector && (<div style={styles.numberSelectorGrid}>
-                {filteredNumbers.map((num) => { const isSelected = favoriteNumbersList.includes(num); return (<div key={num} onClick={() => toggleFavoriteNumber(num)} style={styles.numberButton(isSelected)} className="number-button">{num}</div>); })}
-              </div>)}
-              {favoriteNumbersList.length > 0 && (<div style={styles.favoriteStats}>
-                <div><strong>Selected favorites:</strong> {favoriteNumbersList.join(", ")}</div>
-                <div><strong>Count:</strong> {favoriteNumbersList.length} numbers</div>
-                <div style={styles.statsGrid}>
-                  <div style={styles.statItem}><div>B: {favoriteStats.byColumn.B}</div></div>
-                  <div style={styles.statItem}><div>I: {favoriteStats.byColumn.I}</div></div>
-                  <div style={styles.statItem}><div>N: {favoriteStats.byColumn.N}</div></div>
-                  <div style={styles.statItem}><div>G: {favoriteStats.byColumn.G}</div></div>
-                  <div style={styles.statItem}><div>O: {favoriteStats.byColumn.O}</div></div>
-                  <div style={styles.statItem}><div>Even: {favoriteStats.even}</div></div>
-                  <div style={styles.statItem}><div>Odd: {favoriteStats.odd}</div></div>
-                  <div style={styles.statItem}><div>Prime: {favoriteStats.prime}</div></div>
+              <input type="text" placeholder="🔍 Search numbers" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
+              {showNumberSelector && (
+                <div style={styles.numberSelectorGrid} className="number-selector-grid">
+                  {filteredNumbers.map((num) => (
+                    <div key={num} onClick={() => toggleFavoriteNumberFixed(num)} style={styles.numberButton(favoriteNumbersList.includes(num))} className="number-button">{num}</div>
+                  ))}
                 </div>
-                <div style={{ marginTop: "0.5rem" }}><label style={{ marginRight: "0.5rem" }}>Bias: {favoriteBias}%</label><input type="range" min="0" max="100" value={favoriteBias} onChange={(e) => setFavoriteBias(parseInt(e.target.value))} style={{ width: "100%" }} /></div>
-                <button onClick={clearFavorites} style={{ marginTop: "0.5rem", padding: "0.2rem 0.5rem", background: "#ff4757", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Clear All</button>
-              </div>)}
-              {favoriteNumbersList.length === 0 && (<p style={{ color: "#999", fontSize: "0.9rem", textAlign: "center" }}>Click on numbers above to select favorites</p>)}
-              
+              )}
+              {favoriteNumbersList.length > 0 && (
+                <div style={styles.favoriteStats}>
+                  <div><strong>Selected:</strong> {favoriteNumbersList.slice(0, 5).join(", ")}{favoriteNumbersList.length > 5 ? ` +${favoriteNumbersList.length - 5}` : ""}</div>
+                  <div style={styles.statsGrid}>
+                    {['B','I','N','G','O'].map(col => (<div key={col} style={styles.statItem}><div>{col}: {favoriteStats.byColumn[col]}</div></div>))}
+                  </div>
+                  <button onClick={clearFavorites} style={{ marginTop: "0.3rem", padding: "0.2rem 0.4rem", background: "#ff4757", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "0.7rem" }}>Clear</button>
+                </div>
+              )}
+
               <div style={styles.favoriteListsSection}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                  <h5 style={{ margin: 0 }}>📋 Favorite Lists</h5>
-                  <div><button onClick={() => setShowFavoriteLists(!showFavoriteLists)} style={styles.smallButton}>{showFavoriteLists ? "▼" : "▶"} Manage</button></div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+                  <h5 style={{ margin: 0, fontSize: "0.8rem" }}>📋 Lists</h5>
+                  <button onClick={() => setShowFavoriteLists(!showFavoriteLists)} style={styles.smallButton}>{showFavoriteLists ? "▼" : "▶"}</button>
                 </div>
-                {showFavoriteLists && (<>
-                  <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                    <input type="text" placeholder="List name" value={currentListName} onChange={(e) => setCurrentListName(e.target.value)} style={{ ...styles.input, flex: 1 }} />
-                    <button onClick={saveCurrentList} style={styles.smallButton}>Save</button>
-                  </div>
-                  <h6 style={{ margin: "0.5rem 0", color: "#666" }}>Predefined Lists</h6>
-                  {getPredefinedLists().map(list => (<div key={list.id} className="list-item" style={styles.listItem}><div onClick={() => loadFavoriteList(list)}><div style={styles.listName}>{list.name}</div><div style={styles.listDetails}>{list.numbers.length} numbers • {list.description}</div></div></div>))}
-                  {favoriteLists.length > 0 && (<><h6 style={{ margin: "0.5rem 0", color: "#666" }}>My Saved Lists</h6>{favoriteLists.map(list => (<div key={list.id} className="list-item" style={styles.listItem}><div onClick={() => loadFavoriteList(list)} style={{ flex: 1 }}>{editingListName === list.id ? (<input type="text" defaultValue={list.name} onBlur={(e) => updateListName(list.id, e.target.value)} onKeyPress={(e) => e.key === 'Enter' && updateListName(list.id, e.target.value)} style={styles.input} autoFocus />) : (<div style={styles.listName}>{list.name}</div>)}<div style={styles.listDetails}>{list.numbers.length} numbers • {list.date}</div></div><div style={styles.listActions}><button onClick={() => setEditingListName(list.id)} style={{...styles.smallButton, background: "#667eea"}}>✏️</button><button onClick={() => deleteFavoriteList(list.id)} style={{...styles.smallButton, background: "#ff4757"}}>🗑️</button></div></div>))}</>)}
-                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-                    <button onClick={exportFavoriteLists} style={{...styles.smallButton, background: "#4CAF50"}}>📤 Export</button>
-                    <label style={{...styles.smallButton, background: "#2196F3", cursor: "pointer"}}>📥 Import<input type="file" accept=".json" onChange={importFavoriteLists} style={{ display: "none" }} /></label>
-                  </div>
-                </>)}
+                {showFavoriteLists && (
+                  <>
+                    <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.5rem" }}>
+                      <input type="text" placeholder="List name" value={currentListName} onChange={(e) => setCurrentListName(e.target.value)} style={{ ...styles.input, flex: 1, fontSize: "0.7rem" }} />
+                      <button onClick={saveCurrentList} style={styles.smallButton}>Save</button>
+                    </div>
+                    {getPredefinedLists().slice(0, 3).map(list => (
+                      <div key={list.id} className="list-item" style={styles.listItem}>
+                        <div onClick={() => loadPredefinedList(list)} style={{ flex: 1 }}>
+                          <div style={styles.listName}>{list.name}</div>
+                          <div style={styles.listDetails}>{list.numbers.length} numbers</div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
-            
-            <button onClick={handleGenerate} disabled={isGenerating} style={{ ...styles.generateButton, opacity: isGenerating ? 0.6 : 1, cursor: isGenerating ? "not-allowed" : "pointer" }}>{isGenerating ? "Generating..." : "🎲 Generate Cards with Favorites"}</button>
+
+            <button onClick={handleGenerate} disabled={isGenerating} style={{ ...styles.generateButton, opacity: isGenerating ? 0.6 : 1 }}>
+              {isGenerating ? "Generating..." : "🎲 Generate"}
+            </button>
           </div>
 
           <div style={styles.controlCard}>
-            <h3 style={{ margin: "0 0 1rem 0" }}>🎱 44-Ball Draw</h3>
-            <div style={{ display: "flex", justifyContent: "space-around", marginBottom: "1rem" }}>
-              <div style={{ textAlign: "center" }}><span style={{ display: "block", color: "#666", fontSize: "0.8rem" }}>Drawn</span><span style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{highlightNumbers.length}</span></div>
-              <div style={{ textAlign: "center" }}><span style={{ display: "block", color: "#666", fontSize: "0.8rem" }}>Remaining</span><span style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{44 - highlightNumbers.length}</span></div>
-              <div style={{ textAlign: "center" }}><span style={{ display: "block", color: "#666", fontSize: "0.8rem" }}>Max</span><span style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{maxBalls}</span></div>
+            <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "1rem" }}>🎱 Ball Draw</h3>
+            <div style={{ display: "flex", justifyContent: "space-around", marginBottom: "0.75rem" }}>
+              <div style={{ textAlign: "center" }}><span style={{ display: "block", color: "#666", fontSize: "0.7rem" }}>Drawn</span><span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{highlightNumbers.length}</span></div>
+              <div style={{ textAlign: "center" }}><span style={{ display: "block", color: "#666", fontSize: "0.7rem" }}>Remaining</span><span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{75 - highlightNumbers.length}</span></div>
+              <div style={{ textAlign: "center" }}><span style={{ display: "block", color: "#666", fontSize: "0.7rem" }}>Max</span><span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{CONSTANTS.MAX_BALLS}</span></div>
             </div>
-            <div style={{ height: "8px", background: "#e0e0e0", borderRadius: "4px", marginBottom: "1rem", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${(highlightNumbers.length / maxBalls) * 100}%`, background: "linear-gradient(90deg, #667eea, #764ba2)", transition: "width 0.3s ease" }} />
+            <div style={{ height: "6px", background: "#e0e0e0", borderRadius: "3px", marginBottom: "0.75rem", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(highlightNumbers.length / CONSTANTS.MAX_BALLS) * 100}%`, background: "linear-gradient(90deg, #667eea, #764ba2)", transition: "width 0.3s ease" }} />
             </div>
-            <button onClick={selectRandomBall} style={styles.randomBallButton}>🎲 Draw Random Ball</button>
-            <button onClick={handleNewRound} style={styles.newRoundButton} className="new-round-button">🆕 New Round (Clear All Numbers)</button>
-            <button onClick={recordBingoResult} style={styles.recordResultButton} className="record-result-button" disabled={!cards.length || winners[currentPattern]?.length === 0}>🏆 Record BINGO Result</button>
-            <button onClick={handleReset} style={styles.resetButton}>🔄 Reset Highlights</button>
-            
-            {highlightNumbers.length > 0 && (
-              <div style={{ marginTop: "1rem", padding: "0.5rem", background: "#e8f4fd", borderRadius: "8px" }}>
-                <div style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>📊 Ball Statistics:</div>
-                <div style={styles.statsGrid}>
-                  <div style={styles.statItem}>B: {ballStats.byColumn.B}</div>
-                  <div style={styles.statItem}>I: {ballStats.byColumn.I}</div>
-                  <div style={styles.statItem}>N: {ballStats.byColumn.N}</div>
-                  <div style={styles.statItem}>G: {ballStats.byColumn.G}</div>
-                  <div style={styles.statItem}>O: {ballStats.byColumn.O}</div>
-                  <div style={styles.statItem}>Even: {ballStats.even}</div>
-                  <div style={styles.statItem}>Odd: {ballStats.odd}</div>
-                  <div style={styles.statItem}>Prime: {ballStats.prime}</div>
-                </div>
-              </div>
-            )}
+            <div style={styles.autoAdvanceToggle}>
+              <input type="checkbox" id="autoAdvance" checked={autoAdvanceRound} onChange={(e) => setAutoAdvanceRound(e.target.checked)} />
+              <label htmlFor="autoAdvance">Auto-advance</label>
+            </div>
+            <button onClick={selectRandomBallSafe} style={styles.randomBallButton}>🎲 Random</button>
+            <button onClick={handleNewRound} style={styles.newRoundButton} className="new-round-button">🆕 New Round</button>
+            <button onClick={recordBingoResult} style={styles.recordResultButton} className="record-result-button" disabled={!myCards.length && !generatedCards.length || winners[currentPattern]?.length === 0}>🏆 Record BINGO</button>
+            <button onClick={handleReset} style={styles.resetButton}>🔄 Reset</button>
           </div>
         </div>
 
-        {/* Balls Grid - Only showing up to 44 balls */}
-        {cards.length > 0 && (
-          <div style={styles.ballsSection}>
-            <h3 style={{ margin: "0 0 1rem 0" }}>
-              🎯 Called Numbers (1-44) 
-              {favoriteNumbersList.length > 0 && (<span style={{ marginLeft: "1rem", fontSize: "0.9rem", color: "#ffd700" }}>⭐ Favorites: {favoriteNumbersList.filter(n => n <= 44).join(", ")}</span>)}
-              {selectedRecord && (<span style={{ marginLeft: "1rem", fontSize: "0.9rem", color: "#4CAF50" }}>📋 Loaded: {selectedRecord.name}</span>)}
-            </h3>
-            <div style={styles.ballsGrid}>
-              {Array.from({ length: 44 }, (_, i) => i + 1).map((num) => {
-                const active = highlightNumbers.includes(num);
+        {/* Continue with the rest of the component - same as before but with responsive adjustments */}
+        {/* The remaining JSX remains the same as in the previous version */}
+        {showRoundHistory && (
+          <div style={styles.roundHistorySection}>
+            <div style={styles.roundHistoryHeader} className="round-history-header">
+              <h3 style={styles.roundHistoryTitle}>
+                📜 Round History ({roundHistory.length})
+              </h3>
+              <div style={styles.roundHistoryControls}>
+                {roundHistory.length > 0 && (
+                  <>
+                    <button onClick={exportRoundHistory} style={styles.exportButton}>📥</button>
+                    <button onClick={clearRoundHistory} style={{...styles.deleteButton, padding: "0.4rem 0.8rem", borderRadius: "6px", fontSize: "0.7rem"}}>🗑️</button>
+                  </>
+                )}
+              </div>
+            </div>
+            {roundHistory.length > 0 ? (
+              <>
+                <div style={styles.roundTabs}>
+                  {roundHistory.slice(-10).map(round => (
+                    <button key={round.roundNumber} onClick={() => setSelectedRound(round.roundNumber)} style={styles.roundTab(selectedRound === round.roundNumber)} className="round-tab">
+                      R{round.roundNumber}<span style={{ marginLeft: "0.2rem", fontSize: "0.6rem" }}>({round.ballCount})</span>
+                    </button>
+                  ))}
+                </div>
+                {selectedRound && roundStatsByRound[selectedRound] && (
+                  <div style={styles.roundDetail}>
+                    <div style={styles.roundDetailHeader} className="round-detail-header">
+                      <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Round {selectedRound}</h4>
+                      <span style={{ color: "#666", fontSize: "0.7rem" }}>{roundHistory.find(r => r.roundNumber === selectedRound)?.timestamp}</span>
+                    </div>
+                    <div style={styles.roundStatsGrid}>
+                      <div style={styles.roundStatCard}><div style={styles.roundStatValue}>{roundStatsByRound[selectedRound].totalBalls}</div><div style={styles.roundStatLabel}>Balls</div></div>
+                      <div style={styles.roundStatCard}><div style={styles.roundStatValue}>{roundStatsByRound[selectedRound].uniqueNumbers}</div><div style={styles.roundStatLabel}>Unique</div></div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p style={{ textAlign: "center", color: "#999", padding: "1rem", fontSize: "0.8rem" }}>No rounds completed yet.</p>
+            )}
+          </div>
+        )}
+
+        {showRoundFrequency && (
+          <div style={styles.roundFrequencySection}>
+            <div style={styles.roundFrequencyHeader} className="round-frequency-header">
+              <h3 style={styles.roundFrequencyTitle}>
+                📊 Frequency
+              </h3>
+            </div>
+            <div style={styles.columnLegend}>
+              {CONSTANTS.COLUMNS.map(col => (
+                <div key={col} style={styles.legendItem(getColumnColor(col))}>
+                  <span style={{ fontWeight: 'bold' }}>{col}</span>
+                </div>
+              ))}
+            </div>
+            <div style={styles.roundFrequencyGrid} className="round-frequency-grid">
+              {Array.from({ length: 75 }, (_, i) => i + 1).map((num) => {
+                const frequency = roundFrequency.find(f => f.number === num)?.count || 0;
+                const isSelected = selectedNumber === num;
                 const isFavorite = favoriteNumbersList.includes(num);
-                return (<div key={num} onClick={() => toggleNumber(num)} style={{ ...styles.ball(active), ...(isFavorite && !active ? styles.favoriteBall : {}), position: "relative" }}>
-                  <span style={{ fontWeight: "bold" }}>{num}</span>
-                  {isFavorite && !active && (<span style={{ position: "absolute", top: "-5px", right: "-5px", fontSize: "0.6rem" }}>⭐</span>)}
-                </div>);
+                const column = getColumnForNumber(num);
+                return (
+                  <div key={num} className="round-frequency-item" onClick={() => setSelectedNumber(selectedNumber === num ? null : num)}
+                    style={{ ...styles.roundFrequencyItem(frequency, isSelected, isFavorite), borderLeft: `3px solid ${getColumnColor(column)}` }}>
+                    <span>{num}</span>
+                    {frequency > 0 && (<span style={styles.frequencyBadge}>{frequency}</span>)}
+                  </div>
+                );
               })}
             </div>
           </div>
         )}
 
-        {/* Top Winner */}
-        {topWinner && (<div style={{ background: "white", borderRadius: "16px", padding: "1.5rem", marginBottom: "2rem", border: "2px solid #ffd700" }}>
-          <h3 style={{ margin: "0 0 1rem 0" }}>🏆 Top Performing Card</h3>
-          <div style={{ background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)", borderRadius: "12px", padding: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.5rem" }}>
-              <span style={{ fontWeight: "bold" }}>{formatSerial(topWinner.idx)}</span>
-              <span>Progress: {Math.round(topWinner.progress)}%</span>
-              <span>Win %: {Math.round(topWinner.winPercentage)}%</span>
-              {topWinner.favoriteCount > 0 && (<span style={{ background: "#ffd700", color: "#333", padding: "0.25rem 0.75rem", borderRadius: "20px", fontWeight: "bold" }}>⭐ {topWinner.favoriteCount} favorites</span>)}
-              {topWinner.isWinner && (<span style={{ background: "#ff4757", color: "white", padding: "0.25rem 0.75rem", borderRadius: "20px", fontWeight: "bold" }}>WINNER!</span>)}
-            </div>
-            <div style={{ height: "8px", background: "#e0e0e0", borderRadius: "4px", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${topWinner.progress}%`, background: "linear-gradient(90deg, #ffd700, #ffb347)", transition: "width 0.3s ease" }} />
-            </div>
-          </div>
-        </div>)}
-
-        {/* Cards */}
-        {cards.length > 0 && (<div style={{ background: "white", borderRadius: "16px", padding: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "1rem" }}>
-            <h3 style={{ margin: 0 }}>📇 Bingo Cards ({cards.length}) {Object.values(pinnedCards).some(v => v) && " 📌 Pinned cards shown first"}{favoriteNumbersList.length > 0 && (<span style={{ marginLeft: "1rem", fontSize: "0.9rem", color: "#4CAF50" }}>⭐ Cards with favorites highlighted</span>)}</h3>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button onClick={() => setViewMode("grid")} style={{ padding: "0.5rem 1rem", border: "2px solid #e0e0e0", borderRadius: "8px", background: viewMode === "grid" ? "#667eea" : "white", color: viewMode === "grid" ? "white" : "black", cursor: "pointer" }}>📱 Grid</button>
-              <button onClick={() => setViewMode("list")} style={{ padding: "0.5rem 1rem", border: "2px solid #e0e0e0", borderRadius: "8px", background: viewMode === "list" ? "#667eea" : "white", color: viewMode === "list" ? "white" : "black", cursor: "pointer" }}>📋 List</button>
-            </div>
-          </div>
-          <div style={styles.cardsContainer}>
-            {rankedCards.map(({ card, idx, isWinner, progress, winPercentage, winningPatterns, isPinned, favoriteCount }, rank) => (<div key={idx} className="card-container" style={styles.cardContainer} onClick={() => toggleCardFlip(idx)}>
-              <div className="card-actions" style={styles.cardActions}>
-                {editingCard !== idx ? (<><button onClick={(e) => togglePin(idx, e)} style={{...styles.actionButton, ...styles.pinButton(isPinned)}} className="action-button" title={isPinned ? "Unpin card" : "Pin card"}>📌</button><button onClick={(e) => startEdit(card, idx, e)} style={{...styles.actionButton, ...styles.editButton}} className="action-button" title="Edit card">✏️</button><button onClick={(e) => saveCard(card, idx, e)} style={{...styles.actionButton, ...styles.saveButton}} className="action-button" title="Save to collection">💾</button><button onClick={(e) => deleteCard(idx, e)} style={{...styles.actionButton, ...styles.deleteButton}} className="action-button" title="Delete card">🗑️</button></>) : (<><button onClick={(e) => saveEdit(idx, e)} style={{...styles.actionButton, ...styles.saveButton}} className="action-button" title="Save changes">✓</button><button onClick={(e) => cancelEdit(e)} style={{...styles.actionButton, ...styles.cancelButton}} className="action-button" title="Cancel">✕</button></>)}
+        {(myCards.length > 0 || generatedCards.length > 0) && (
+          <div style={styles.ballsSection}>
+            <h3 style={{ margin: "0 0 0.75rem 0", fontSize: "1rem" }}>🎯 Called Numbers</h3>
+            <form onSubmit={handleManualNumberSubmitSafe} style={{ marginBottom: "1rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input type="number" value={manualNumberInput} onChange={(e) => setManualNumberInput(e.target.value)} placeholder="Enter number" min="1" max="75" style={{ flex: 1, padding: "0.5rem", border: "2px solid #667eea", borderRadius: "6px", fontSize: "0.9rem" }} />
+                <button type="submit" style={{ padding: "0.5rem 1rem", background: "#667eea", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}>Add</button>
               </div>
-              <div style={styles.cardInner(flippedCards[idx])}>
-                <div style={styles.cardFront}>
-                  <div style={styles.bingoCard(isWinner, isPinned, favoriteCount > 0)}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem", flexWrap: "wrap", gap: "0.25rem" }}>
-                      <span style={{ fontWeight: "bold" }}>{formatSerial(idx)}</span>
-                      <span>Rank #{rank + 1}</span>
-                      {favoriteCount > 0 && (<span style={{ background: "#ffd700", color: "#333", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem" }}>⭐ {favoriteCount}</span>)}
-                      {isWinner && (<span style={{ background: "#ff4757", color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem" }}>WINNER</span>)}
+            </form>
+            <div style={styles.ballsGrid} className="balls-grid">
+              {Array.from({ length: 75 }, (_, i) => i + 1).map((num) => {
+                const active = highlightNumbers.includes(num);
+                const frequency = numberFrequency[num] || 0;
+                const isFavorite = favoriteNumbersList.includes(num);
+                return (
+                  <div key={num} onClick={() => toggleNumberSafe(num)} style={{ ...styles.ball(active), ...(isFavorite ? styles.favoriteBall : {}) }}>
+                    <span style={{ fontWeight: "bold", fontSize: "clamp(0.6rem, 2.5vw, 0.8rem)" }}>{num}</span>
+                    {frequency > 0 && (<span style={{ fontSize: "0.5rem", background: active ? "#fbc02d" : "#667eea", color: "white", padding: "0.1rem 0.2rem", borderRadius: "6px", marginTop: "0.1rem" }}>{frequency}</span>)}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {(myCards.length > 0 || generatedCards.length > 0) && (
+          <div style={styles.cardSectionTabs} className="card-section-tabs">
+            <button onClick={() => setActiveCardSection("myCards")} style={styles.cardSectionTab(activeCardSection === "myCards")} className="card-section-tab">
+              <span>🎯 My Cards</span>
+              <span style={{ background: activeCardSection === "myCards" ? "rgba(255,255,255,0.3)" : "#667eea", color: "white", padding: "0.15rem 0.6rem", borderRadius: "16px", fontSize: "0.7rem" }}>{myCards.length}</span>
+            </button>
+            <button onClick={() => setActiveCardSection("generated")} style={styles.cardSectionTab(activeCardSection === "generated")} className="card-section-tab">
+              <span>🎴 Generated</span>
+              <span style={{ background: activeCardSection === "generated" ? "rgba(255,255,255,0.3)" : "#764ba2", color: "white", padding: "0.15rem 0.6rem", borderRadius: "16px", fontSize: "0.7rem" }}>{generatedCards.length}</span>
+            </button>
+          </div>
+        )}
+
+        {activeCardSection === "myCards" && myCards.length > 0 && (
+          <div style={{ background: "white", borderRadius: "12px", padding: "1rem", marginBottom: "1.5rem" }}>
+            <div style={styles.cardsContainer} className="cards-container">
+              {myRankedCards.map(({ card, idx, section, isWinner, progress, winPercentage, winningPatterns, isPinned, favoriteCount, label }) => (
+                <div key={`${section}-${idx}`} className="card-container" style={styles.cardContainer} onClick={() => toggleCardFlip(idx, section)}>
+                  <div className="card-actions" style={styles.cardActions}>
+                    {editingCard !== `${section}-${idx}` ? (
+                      <>
+                        <button onClick={(e) => togglePin(idx, section, e)} style={{...styles.actionButton, ...styles.pinButton(isPinned)}} className="action-button">📌</button>
+                        <button onClick={(e) => startEdit(card, idx, section, e)} style={{...styles.actionButton, ...styles.editButton}} className="action-button">✏️</button>
+                        <button onClick={(e) => startEditLabel(idx, section, e)} style={{...styles.actionButton, ...styles.labelButton}} className="action-button">🏷️</button>
+                        <button onClick={(e) => saveCard(card, idx, section, e)} style={{...styles.actionButton, ...styles.saveButton}} className="action-button">💾</button>
+                        <button onClick={(e) => deleteCard(idx, section, e)} style={{...styles.actionButton, ...styles.deleteButton}} className="action-button">🗑️</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={(e) => saveEdit(idx, section, e)} style={{...styles.actionButton, ...styles.saveButton}} className="action-button">✓</button>
+                        <button onClick={(e) => cancelEdit(e)} style={{...styles.actionButton, ...styles.cancelButton}} className="action-button">✕</button>
+                      </>
+                    )}
+                  </div>
+                  <div style={styles.cardInner(flippedCards[`${section}-${idx}`])}>
+                    <div style={styles.cardFront}>
+                      <div style={styles.bingoCard(isWinner, isPinned, favoriteCount > 0)}>
+                        <div style={styles.cardLabel} className="card-label" onClick={(e) => { e.stopPropagation(); startEditLabel(idx, section, e); }}>
+                          <span style={styles.labelEmoji}>{label.emoji}</span>
+                          <span style={styles.labelName}>{label.name}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem", flexWrap: "wrap", gap: "0.2rem" }}>
+                          <span style={{ fontWeight: "bold", color: "#666", fontSize: "0.7rem" }}>{formatSerial(idx, "MY")}</span>
+                          {favoriteCount > 0 && (<span style={{ background: "#ffd700", padding: "0.1rem 0.3rem", borderRadius: "10px", fontSize: "0.65rem" }}>⭐{favoriteCount}</span>)}
+                        </div>
+                        <div style={{ height: "3px", background: "#e0e0e0", borderRadius: "2px", marginBottom: "0.3rem" }}>
+                          <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #4CAF50, #8BC34A)" }} />
+                        </div>
+                        <div style={{ textAlign: "center", marginBottom: "0.3rem", fontSize: "0.7rem", color: "#666" }}>{Math.round(winPercentage)}%</div>
+                        <div style={styles.bingoHeader}>
+                          {CONSTANTS.COLUMNS.map(letter => (<span key={letter} style={styles.bingoLetter}>{letter}</span>))}
+                        </div>
+                        <div style={styles.bingoGrid}>
+                          {[0,1,2,3,4].map((row) => (
+                            <div key={row} style={styles.bingoRow}>
+                              {[0,1,2,3,4].map((col) => {
+                                const cell = card[col][row];
+                                const isHighlighted = highlightNumbers.includes(cell);
+                                const isFree = cell === "FREE";
+                                const isFavorite = !isFree && favoriteNumbersList.includes(cell);
+                                if (editingCard === `${section}-${idx}`) {
+                                  return (<input key={col} type="text" value={cell} onChange={(e) => updateCell(col, row, e.target.value, e)} onClick={(e) => e.stopPropagation()} style={styles.editInput(false)} />);
+                                }
+                                return (
+                                  <div key={col} style={styles.bingoCell(isHighlighted, isFree, isFavorite, false)}>
+                                    {isFree ? "⭐" : cell}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                        <div style={styles.flipHint}>👆 Click</div>
+                      </div>
                     </div>
-                    <div style={{ height: "4px", background: "#e0e0e0", borderRadius: "2px", marginBottom: "0.5rem", overflow: "hidden" }}><div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #4CAF50, #8BC34A)", transition: "width 0.3s ease" }} /></div>
-                    <div style={{ textAlign: "center", marginBottom: "0.5rem", fontSize: "0.9rem", color: "#666" }}>Win Chance: {Math.round(winPercentage)}%</div>
-                    <div style={styles.bingoGrid}>
-                      <div style={styles.bingoRow}><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>B</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>I</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>N</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>G</span><span style={{ width: "clamp(30px, 8vw, 35px)", textAlign: "center", fontWeight: "bold" }}>O</span></div>
-                      {Array.from({ length: 5 }).map((_, row) => (<div key={row} style={styles.bingoRow}>
-                        {card.map((col, c) => { const cell = col[row]; const isHighlighted = highlightNumbers.includes(cell); const isFree = cell === "FREE"; const isFavorite = !isFree && favoriteNumbersList.includes(cell); if (editingCard === idx) { return (<input key={c} type="text" value={cell} onChange={(e) => updateCell(c, row, e.target.value, e)} onClick={(e) => e.stopPropagation()} style={styles.editInput} disabled={cell === "FREE"} />); } return (<div key={c} style={styles.bingoCell(isHighlighted, isFree, isFavorite)}>{isFree ? "⭐" : cell}{isFavorite && !isHighlighted && (<span style={styles.favoriteStar}>⭐</span>)}</div>); })}
-                      </div>))}
+                    <div style={styles.cardBack}>
+                      <div style={styles.backHeader}>🏆 Patterns</div>
+                      {winningPatterns.length > 0 ? (
+                        <div style={styles.patternsList}>
+                          {winningPatterns.slice(0, 3).map((pattern, index) => (
+                            <div key={index} style={styles.patternItem} onClick={(e) => { e.stopPropagation(); setCurrentPattern(pattern.id); toggleCardFlip(idx, section); }}>
+                              <span>{pattern.icon}</span><span>{pattern.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (<div style={styles.noPatterns}>No winning patterns</div>)}
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem", fontSize: "0.9rem", color: "#666" }}><span>{getCardScore(card)} left</span><span>Target: {targetWinPercentage}%</span></div>
-                    <div style={styles.flipHint}>👆 Click to see winning patterns</div>
                   </div>
                 </div>
-                <div style={styles.cardBack}>
-                  <div style={styles.cardNumber}>{formatSerial(idx)}</div>
-                  <div style={styles.backHeader}>🏆 Winning Patterns</div>
-                  {winningPatterns.length > 0 ? (<div style={styles.patternsList}>{winningPatterns.map((pattern, index) => (<div key={index} style={styles.patternItem} onClick={(e) => { e.stopPropagation(); setCurrentPattern(pattern.id); toggleCardFlip(idx); }}><span>{pattern.icon}</span><span>{pattern.name}</span><span style={styles.patternCount}>WINNER</span></div>))}</div>) : (<div style={styles.noPatterns}>No winning patterns yet<br /><span style={{ fontSize: "0.8rem" }}>Keep drawing numbers!</span></div>)}
-                  <div style={{ textAlign: "center", marginTop: "auto", fontSize: "0.8rem", color: "rgba(255,255,255,0.7)", paddingTop: "0.5rem" }}>👆 Click pattern to view</div>
-                </div>
-              </div>
-            </div>))}
+              ))}
+            </div>
           </div>
-        </div>)}
+        )}
+
+        {activeCardSection === "generated" && generatedCards.length > 0 && (
+          <div style={{ background: "white", borderRadius: "12px", padding: "1rem", marginBottom: "1.5rem" }}>
+            <div style={styles.cardsContainer} className="cards-container">
+              {generatedRankedCards.map(({ card, idx, section, isWinner, progress, winPercentage, winningPatterns, isPinned, favoriteCount, label }) => (
+                <div key={`${section}-${idx}`} className="card-container" style={styles.cardContainer} onClick={() => toggleCardFlip(idx, section)}>
+                  <div className="card-actions" style={styles.cardActions}>
+                    {editingCard !== `${section}-${idx}` ? (
+                      <>
+                        <button onClick={(e) => togglePin(idx, section, e)} style={{...styles.actionButton, ...styles.pinButton(isPinned)}} className="action-button">📌</button>
+                        <button onClick={(e) => startEdit(card, idx, section, e)} style={{...styles.actionButton, ...styles.editButton}} className="action-button">✏️</button>
+                        <button onClick={(e) => startEditLabel(idx, section, e)} style={{...styles.actionButton, ...styles.labelButton}} className="action-button">🏷️</button>
+                        <button onClick={(e) => saveCard(card, idx, section, e)} style={{...styles.actionButton, ...styles.saveButton}} className="action-button">💾</button>
+                        <button onClick={(e) => deleteCard(idx, section, e)} style={{...styles.actionButton, ...styles.deleteButton}} className="action-button">🗑️</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={(e) => saveEdit(idx, section, e)} style={{...styles.actionButton, ...styles.saveButton}} className="action-button">✓</button>
+                        <button onClick={(e) => cancelEdit(e)} style={{...styles.actionButton, ...styles.cancelButton}} className="action-button">✕</button>
+                      </>
+                    )}
+                  </div>
+                  <div style={styles.cardInner(flippedCards[`${section}-${idx}`])}>
+                    <div style={styles.cardFront}>
+                      <div style={styles.bingoCard(isWinner, isPinned, favoriteCount > 0)}>
+                        <div style={styles.cardLabel} className="card-label" onClick={(e) => { e.stopPropagation(); startEditLabel(idx, section, e); }}>
+                          <span style={styles.labelEmoji}>{label.emoji}</span>
+                          <span style={styles.labelName}>{label.name}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem", flexWrap: "wrap", gap: "0.2rem" }}>
+                          <span style={{ fontWeight: "bold", color: "#666", fontSize: "0.7rem" }}>{formatSerial(idx, "GEN")}</span>
+                          {favoriteCount > 0 && (<span style={{ background: "#ffd700", padding: "0.1rem 0.3rem", borderRadius: "10px", fontSize: "0.65rem" }}>⭐{favoriteCount}</span>)}
+                        </div>
+                        <div style={{ height: "3px", background: "#e0e0e0", borderRadius: "2px", marginBottom: "0.3rem" }}>
+                          <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #4CAF50, #8BC34A)" }} />
+                        </div>
+                        <div style={{ textAlign: "center", marginBottom: "0.3rem", fontSize: "0.7rem", color: "#666" }}>{Math.round(winPercentage)}%</div>
+                        <div style={styles.bingoHeader}>
+                          {CONSTANTS.COLUMNS.map(letter => (<span key={letter} style={styles.bingoLetter}>{letter}</span>))}
+                        </div>
+                        <div style={styles.bingoGrid}>
+                          {[0,1,2,3,4].map((row) => (
+                            <div key={row} style={styles.bingoRow}>
+                              {[0,1,2,3,4].map((col) => {
+                                const cell = card[col][row];
+                                const isHighlighted = highlightNumbers.includes(cell);
+                                const isFree = cell === "FREE";
+                                const isFavorite = !isFree && favoriteNumbersList.includes(cell);
+                                if (editingCard === `${section}-${idx}`) {
+                                  return (<input key={col} type="text" value={cell} onChange={(e) => updateCell(col, row, e.target.value, e)} onClick={(e) => e.stopPropagation()} style={styles.editInput(false)} />);
+                                }
+                                return (
+                                  <div key={col} style={styles.bingoCell(isHighlighted, isFree, isFavorite, false)}>
+                                    {isFree ? "⭐" : cell}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                        <div style={styles.flipHint}>👆 Click</div>
+                      </div>
+                    </div>
+                    <div style={styles.cardBack}>
+                      <div style={styles.backHeader}>🏆 Patterns</div>
+                      {winningPatterns.length > 0 ? (
+                        <div style={styles.patternsList}>
+                          {winningPatterns.slice(0, 3).map((pattern, index) => (
+                            <div key={index} style={styles.patternItem} onClick={(e) => { e.stopPropagation(); setCurrentPattern(pattern.id); toggleCardFlip(idx, section); }}>
+                              <span>{pattern.icon}</span><span>{pattern.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (<div style={styles.noPatterns}>No winning patterns</div>)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Ball Records Modal */}
-      {showBallRecords && (<div style={styles.modal} onClick={() => setShowBallRecords(false)}>
-        <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
-            <h2>🎱 44-Ball Records</h2>
-            <div>{ballRecords.length > 0 && (<button onClick={exportBallRecords} style={styles.exportButton}>📥 Export</button>)}</div>
+      {/* Modals remain the same as before */}
+      {showProfileModal && (
+        <div style={styles.modal} onClick={() => setShowProfileModal(false)}>
+          <div style={styles.profileModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.profileHeader}>
+              <div style={styles.profileAvatar}>{profileData.avatar}</div>
+              <div style={styles.profileName}>{profileData.name}</div>
+              <div style={styles.profileLevel}>Level {profileData.level}</div>
+            </div>
+            <div style={styles.profileStats}>
+              <div style={styles.profileStat}><div style={styles.profileStatValue}>{profileData.experience}</div><div style={styles.profileStatLabel}>XP</div></div>
+              <div style={styles.profileStat}><div style={styles.profileStatValue}>{profileData.gamesPlayed}</div><div style={styles.profileStatLabel}>Games</div></div>
+              <div style={styles.profileStat}><div style={styles.profileStatValue}>{profileData.winRate}%</div><div style={styles.profileStatLabel}>Win Rate</div></div>
+              <div style={styles.profileStat}><div style={styles.profileStatValue}>{profileData.favoritePattern}</div><div style={styles.profileStatLabel}>Favorite</div></div>
+            </div>
+            <div style={styles.profileFooter}>Member since {profileData.joinDate}</div>
+            <button onClick={() => setShowProfileModal(false)} style={styles.closeButton}>Close</button>
           </div>
+        </div>
+      )}
 
-          <h3>📋 Predefined Records</h3>
-          {Object.entries(predefinedRecords).map(([name, balls]) => (<div key={name} style={styles.ballRecordItem} onClick={() => loadPredefinedRecord(name, balls)}>
-            <div style={styles.ballRecordHeader}>
-              <span style={styles.ballRecordName}>{name}</span>
-              <span style={styles.ballRecordCount}>{balls.length} balls</span>
+      {showLabelModal && labelCardIndex !== null && (
+        <div style={styles.modal} onClick={() => setShowLabelModal(false)}>
+          <div style={styles.labelModal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginBottom: "0.75rem", fontSize: "1rem" }}>Edit Label</h3>
+            <div style={styles.emojiPicker}>
+              {AVAILABLE_EMOJIS.slice(0, 6).map(emoji => (
+                <div key={emoji} style={styles.emojiOption} className="emoji-option"
+                  onClick={() => { setCardLabels(prev => ({ ...prev, [`${labelCardSection}-${labelCardIndex}`]: { ...prev[`${labelCardSection}-${labelCardIndex}`], emoji: emoji } })); }}>
+                  {emoji}
+                </div>
+              ))}
             </div>
-            <div style={styles.ballRecordSequence}>Sequence: {balls.slice(0, 10).join(", ")}...{balls.slice(-5).join(", ")}</div>
-          </div>))}
-
-          {ballRecords.length > 0 && (<><h3 style={{ marginTop: "1rem" }}>💾 Saved Records</h3>{ballRecords.map(record => (<div key={record.id} style={styles.ballRecordItem}>
-            <div style={styles.ballRecordHeader}>
-              <span style={styles.ballRecordName}>{record.name}</span>
-              <span style={styles.ballRecordCount}>{record.count} balls</span>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Name</label>
+              <input type="text" value={labelInput} onChange={(e) => setLabelInput(e.target.value)} style={styles.input} />
             </div>
-            <div style={styles.ballRecordSequence}>Sequence: {record.sequence}</div>
-            <div style={{ fontSize: "0.8rem", color: "#999" }}>Saved: {record.date}</div>
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-              <button onClick={() => loadBallRecord(record)} style={{...styles.smallButton, background: "#4CAF50"}}>Load</button>
-              <button onClick={() => deleteBallRecord(record.id)} style={{...styles.smallButton, background: "#ff4757"}}>Delete</button>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button onClick={() => { updateCardLabel(labelCardIndex, labelCardSection, { name: labelInput, emoji: cardLabels[`${labelCardSection}-${labelCardIndex}`]?.emoji || "🎴" }); }} style={styles.generateButton}>Save</button>
+              <button onClick={() => setShowLabelModal(false)} style={{...styles.resetButton, width: "auto", padding: "0.6rem 1.2rem"}}>Cancel</button>
             </div>
-          </div>))}</>)}
-
-          <div style={{ marginTop: "1rem", padding: "1rem", background: "#f8f9fa", borderRadius: "8px" }}>
-            <h4>💾 Save Current Ball Sequence</h4>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <input type="text" placeholder="Record name" value={ballRecordName} onChange={(e) => setBallRecordName(e.target.value)} style={{ ...styles.input, flex: 1 }} />
-              <button onClick={saveBallRecord} style={styles.smallButton}>Save Record</button>
-            </div>
-            {highlightNumbers.length > 0 && (<div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "#666", wordBreak: "break-all" }}>Current: {highlightNumbers.join(", ")}</div>)}
           </div>
+        </div>
+      )}
 
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", flexWrap: "wrap" }}>
-            <label style={{...styles.smallButton, background: "#2196F3", cursor: "pointer"}}>📥 Import Records<input type="file" accept=".json" onChange={importBallRecords} style={{ display: "none" }} /></label>
-            <button onClick={clearBallRecord} style={{...styles.smallButton, background: "#ff9800"}}>Clear Current</button>
+      {showResults && (
+        <div style={styles.modal} onClick={() => setShowResults(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ fontSize: "1.2rem" }}>🏆 Results</h2>
+            {gameResults.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#999", padding: "1rem" }}>No results yet.</p>
+            ) : (
+              <>
+                {stats && (
+                  <div style={styles.statsContainer}>
+                    <div style={styles.statsGridMain}>
+                      <div style={styles.statBox}><div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{stats.totalGames}</div><div>Games</div></div>
+                      <div style={styles.statBox}><div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{stats.averageBallsToWin}</div><div>Avg Balls</div></div>
+                    </div>
+                  </div>
+                )}
+                {gameResults.slice(0, 5).map(result => (
+                  <div key={result.id} style={styles.resultItem}>
+                    <div style={styles.resultHeader}>
+                      <div><strong>{result.patternIcon} {result.patternName}</strong></div>
+                      <span style={styles.winnerBadge}>{result.winnerCount}</span>
+                    </div>
+                    <div style={{ fontSize: "0.7rem", color: "#666" }}>{result.timestamp}</div>
+                  </div>
+                ))}
+              </>
+            )}
+            <button onClick={() => setShowResults(false)} style={styles.closeButton}>Close</button>
           </div>
-
-          <button onClick={() => setShowBallRecords(false)} style={styles.closeButton}>Close</button>
         </div>
-      </div>)}
+      )}
 
-      {/* Results Modal */}
-      {showResults && (<div style={styles.modal} onClick={() => setShowResults(false)}>
-        <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}><h2>🏆 Bingo Results</h2><div>{gameResults.length > 0 && (<button onClick={exportResults} style={styles.exportButton}>📥 Export</button>)}</div></div>
-          {gameResults.length === 0 ? (<p style={{ textAlign: "center", color: "#999", padding: "2rem" }}>No results yet. Click "Record BINGO Result" when you have winners!</p>) : (<>
-            {stats && (<div style={styles.statsContainer}><h3 style={{ margin: 0 }}>📊 Statistics</h3><div style={styles.statsGridMain}><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.totalGames}</div><div>Total Games</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.averageBallsToWin}</div><div>Avg Balls to Win</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.averageWinnersPerGame}</div><div>Avg Winners/Game</div></div><div style={styles.statBox}><div style={{ fontSize: "2rem", fontWeight: "bold" }}>{stats.mostWinningPattern}</div><div>Most Winning Pattern</div></div></div><div style={{ marginTop: "1rem" }}><h4>Pattern Statistics</h4><div style={{ display: "grid", gap: "0.5rem" }}>{Object.entries(stats.patternStats).map(([pattern, data]) => (<div key={pattern} style={{ background: "rgba(255,255,255,0.2)", padding: "0.5rem", borderRadius: "8px", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}><span>{data.icon} {data.name}</span><span>{data.count} games, {data.totalWinners} winners</span></div>))}</div></div></div>)}
-            <h3>Game Results</h3>
-            {gameResults.map(result => (<div key={result.id} style={styles.resultItem}><div style={styles.resultHeader}><div><strong>{result.patternIcon} {result.patternName}</strong><span style={{ color: "#999", marginLeft: "0.5rem" }}>{result.timestamp}</span></div><span style={styles.winnerBadge}>{result.winnerCount} winner{result.winnerCount !== 1 ? 's' : ''}</span></div><div>🎱 {result.ballsDrawnCount} balls drawn</div><div>📇 {result.totalCards} cards in play</div>{result.notes && (<div style={{ color: "#666", fontStyle: "italic", marginTop: "0.5rem" }}>📝 {result.notes}</div>)}<div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}><input type="text" placeholder="Add notes..." value={result.notes || ''} onChange={(e) => saveGameResult(result.id, e.target.value)} style={styles.noteInput} /><button onClick={() => deleteGameResult(result.id)} style={{...styles.deleteButton, padding: "0.5rem"}}>🗑️</button></div></div>))}
-          </>)}
-          <button onClick={() => setShowResults(false)} style={styles.closeButton}>Close</button>
+      {showHistory && (
+        <div style={styles.modal} onClick={() => setShowHistory(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ fontSize: "1.2rem" }}>📜 History</h2>
+            {gameHistory.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#999", padding: "1rem" }}>No history yet.</p>
+            ) : (
+              gameHistory.slice(0, 10).map(history => (
+                <div key={history.id} style={styles.historyItem}>
+                  <div style={styles.historyPattern}><span>{history.patternIcon}</span><span>{history.pattern}</span></div>
+                  <div style={{ fontSize: "0.7rem", color: "#666" }}>{history.timestamp}</div>
+                </div>
+              ))
+            )}
+            <button onClick={() => setShowHistory(false)} style={styles.closeButton}>Close</button>
+          </div>
         </div>
-      </div>)}
+      )}
 
-      {/* History Modal */}
-      {showHistory && (<div style={styles.modal} onClick={() => setShowHistory(false)}>
-        <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-          <h2>📜 Game History</h2>
-          {gameHistory.length === 0 ? (<p style={{ textAlign: "center", color: "#999", padding: "2rem" }}>No game history yet.</p>) : (gameHistory.map(history => (<div key={history.id} style={styles.historyItem} onClick={() => { const result = gameResults.find(r => r.id === history.id); if (result) { setCurrentGameResult(result); setShowResults(true); setShowHistory(false); } }}><div style={styles.historyPattern}><span>{history.patternIcon}</span><span>{history.pattern}</span></div><div><span style={{ marginRight: "1rem" }}>{history.winnerCount} winner{history.winnerCount !== 1 ? 's' : ''}</span><span style={{ marginRight: "1rem" }}>🎱 {history.ballsDrawn}</span><span style={{ color: "#999", fontSize: "0.9rem" }}>{history.timestamp}</span></div></div>)))}
-          <button onClick={() => setShowHistory(false)} style={styles.closeButton}>Close</button>
+      {showSavedCards && (
+        <div style={styles.savedCardsModal} onClick={() => setShowSavedCards(false)}>
+          <div style={styles.savedCardsContent} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ fontSize: "1.2rem" }}>💾 Saved Cards ({savedCards.length})</h2>
+            {savedCards.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#999", padding: "1rem" }}>No saved cards yet.</p>
+            ) : (
+              savedCards.slice(0, 10).map(savedCard => (
+                <div key={savedCard.id} style={styles.savedCardItem}>
+                  <div style={styles.savedCardInfo} onClick={() => loadSavedCard(savedCard)}>
+                    <div><strong>{savedCard.label?.name || savedCard.serial}</strong></div>
+                    <div style={styles.savedCardDate}>{savedCard.date}</div>
+                  </div>
+                  <button onClick={(e) => deleteSavedCard(savedCard.id, e)} style={{...styles.actionButton, ...styles.deleteButton}}>🗑️</button>
+                </div>
+              ))
+            )}
+            <button onClick={() => setShowSavedCards(false)} style={styles.closeButton}>Close</button>
+          </div>
         </div>
-      </div>)}
-
-      {/* Saved Cards Modal */}
-      {showSavedCards && (<div style={styles.savedCardsModal} onClick={() => setShowSavedCards(false)}>
-        <div style={styles.savedCardsContent} onClick={(e) => e.stopPropagation()}>
-          <h2>💾 Saved Cards Collection</h2>
-          {savedCards.length === 0 ? (<p style={{ textAlign: "center", color: "#999", padding: "2rem" }}>No saved cards yet. Click the 💾 button on any card to save it.</p>) : (savedCards.map(savedCard => (<div key={savedCard.id} style={styles.savedCardItem}><div style={styles.savedCardInfo} onClick={() => loadSavedCard(savedCard)}><strong>{savedCard.serial}</strong><div style={styles.savedCardDate}>Saved: {savedCard.date}</div><div style={styles.savedCardPatterns}>{savedCard.patterns.map(p => (<span key={p.id} style={styles.savedCardPatternTag}>{p.icon} {p.name}</span>))}</div></div><button onClick={(e) => deleteSavedCard(savedCard.id, e)} style={{...styles.actionButton, ...styles.deleteButton}}>🗑️</button></div>)))}
-          <button onClick={() => setShowSavedCards(false)} style={styles.closeButton}>Close</button>
-        </div>
-      </div>)}
+      )}
     </div>
   );
 }
-
-export default Pattern;
