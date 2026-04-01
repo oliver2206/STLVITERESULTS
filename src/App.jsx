@@ -14,26 +14,43 @@ const COLS = {
 };
 const COL_KEYS = ["B", "I", "N", "G", "O"];
 
-function createBall(i, total, W, H) {
-  const col = COL_KEYS[i % 5];
-  const [lo, hi] = COLS[col].range;
-  const r = 22 + Math.random() * 14;
-  const angle = (i / total) * Math.PI * 2;
-  const dist = 80 + Math.random() * 120;
-  return {
-    col,
-    num: lo + Math.floor(Math.random() * (hi - lo + 1)),
-    color: COLS[col].color,
-    textColor: COLS[col].text,
-    x: W / 2 + Math.cos(angle) * dist,
-    y: H / 2 + Math.sin(angle) * dist,
-    r,
-    vx: (Math.random() - 0.5) * 1.6,
-    vy: (Math.random() - 0.5) * 1.6,
-    phase: Math.random() * Math.PI * 2,
-    floatSpeed: 0.5 + Math.random() * 0.5,
-    floatAmp: 4 + Math.random() * 4,
-  };
+function generateUniqueBalls(count, W, H) {
+  // Build a shuffled pool of unique numbers 1–75
+  const allNums = Array.from({ length: 75 }, (_, i) => i + 1);
+  for (let i = allNums.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allNums[i], allNums[j]] = [allNums[j], allNums[i]];
+  }
+  const picked = allNums.slice(0, count);
+
+  const BALL_R = 30; // fixed radius for all balls
+
+  return picked.map((num, i) => {
+    // Determine column from number
+    let col = "O";
+    if (num <= 15)       col = "B";
+    else if (num <= 30)  col = "I";
+    else if (num <= 45)  col = "N";
+    else if (num <= 60)  col = "G";
+
+    const angle = (i / count) * Math.PI * 2;
+    const dist = 100 + Math.random() * 140;
+
+    return {
+      col,
+      num,
+      color: COLS[col].color,
+      textColor: COLS[col].text,
+      x: W / 2 + Math.cos(angle) * dist,
+      y: H / 2 + Math.sin(angle) * dist,
+      r: BALL_R,
+      vx: (Math.random() - 0.5) * 1.6,
+      vy: (Math.random() - 0.5) * 1.6,
+      phase: Math.random() * Math.PI * 2,
+      floatSpeed: 0.5 + Math.random() * 0.5,
+      floatAmp: 4 + Math.random() * 4,
+    };
+  });
 }
 
 function resolveCollisions(balls) {
@@ -105,9 +122,7 @@ export default function App() {
     const W = (canvas.width = canvas.offsetWidth);
     const H = (canvas.height = canvas.offsetHeight);
 
-    ballsRef.current = Array.from({ length: BALL_COUNT }, (_, i) =>
-      createBall(i, BALL_COUNT, W, H)
-    );
+    ballsRef.current = generateUniqueBalls(BALL_COUNT, W, H);
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
@@ -239,35 +254,65 @@ export default function App() {
           BINGO FORTUNE
         </h1>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: 280 }}>
-          {["Generate", "Pattern", "Checker", "Analyzer", "Gallery"].map((name) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, width: 300 }}>
+          {[
+            { name: "Generate", icon: "🎲", accent: "#4f9ef8" },
+            { name: "Pattern",  icon: "🔲", accent: "#a855f7" },
+            { name: "Checker",  icon: "✅", accent: "#22c55e" },
+            { name: "Analyzer", icon: "📊", accent: "#f97316" },
+            { name: "Gallery",  icon: "🖼️", accent: "#ec4899" },
+          ].map(({ name, icon, accent }) => (
             <button
               key={name}
               onClick={() => setPage(name)}
               style={{
-                background: "rgba(40,40,40,0.88)",
+                background: "rgba(30,30,40,0.85)",
                 color: "#fff",
-                border: "none",
-                borderRadius: 10,
-                padding: "14px 0",
-                fontSize: 15,
+                border: "2px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                padding: "13px 20px",
+                fontSize: 14,
                 fontWeight: 700,
-                letterSpacing: 2,
+                letterSpacing: 3,
                 cursor: "pointer",
                 fontFamily: "'Arial Black', Arial, sans-serif",
-                transition: "background 0.15s, transform 0.1s",
+                transition: "all 0.18s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                position: "relative",
+                overflow: "hidden",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
               }}
               onMouseEnter={(e) => {
-                e.target.style.background = "rgba(70,70,70,0.95)";
-                e.target.style.transform = "scale(1.02)";
+                const btn = e.currentTarget;
+                btn.style.background = accent;
+                btn.style.border = `2px solid ${accent}`;
+                btn.style.transform = "scale(1.04) translateY(-2px)";
+                btn.style.boxShadow = `0 8px 24px ${accent}66`;
+                btn.style.letterSpacing = "4px";
               }}
               onMouseLeave={(e) => {
-                e.target.style.background = "rgba(40,40,40,0.88)";
-                e.target.style.transform = "scale(1)";
+                const btn = e.currentTarget;
+                btn.style.background = "rgba(30,30,40,0.85)";
+                btn.style.border = "2px solid rgba(255,255,255,0.1)";
+                btn.style.transform = "scale(1) translateY(0)";
+                btn.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+                btn.style.letterSpacing = "3px";
               }}
-              onMouseDown={(e) => (e.target.style.transform = "scale(0.98)")}
-              onMouseUp={(e) => (e.target.style.transform = "scale(1.02)")}
+              onMouseDown={(e) => {
+                const btn = e.currentTarget;
+                btn.style.transform = "scale(0.97) translateY(1px)";
+                btn.style.boxShadow = `0 2px 8px ${accent}44`;
+              }}
+              onMouseUp={(e) => {
+                const btn = e.currentTarget;
+                btn.style.transform = "scale(1.04) translateY(-2px)";
+                btn.style.boxShadow = `0 8px 24px ${accent}66`;
+              }}
             >
+              <span style={{ fontSize: 18 }}>{icon}</span>
               {name.toUpperCase()}
             </button>
           ))}
