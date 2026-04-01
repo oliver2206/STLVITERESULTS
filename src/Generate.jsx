@@ -1,70 +1,32 @@
 import { useState } from "react";
 
-const links = ["Home", "About", "Services", "Portfolio", "Contact"];
+function LeafIcon({ size = 32 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <path
+        d="M16 28C16 28 6 22 6 13C6 8.02944 10.4772 4 16 4C21.5228 4 26 8.02944 26 13C26 22 16 28 16 28Z"
+        fill="#1D9E75"
+      />
+      <path d="M16 6C16 6 20 10 20 16C20 20 18 24 16 28" stroke="#085041" strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.5"/>
+      <path d="M16 14C14 12 10 12 8 14" stroke="#085041" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.35"/>
+      <path d="M16 18C18 16 22 16 24 17" stroke="#085041" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.35"/>
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState("Home");
 
   return (
-    <nav style={{ background: "#fff", border: "1px solid #eee", borderRadius: 12, padding: "0 20px", position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
-
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "#534AB7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>N</span>
-          </div>
-          <span style={{ fontWeight: 500, fontSize: 15 }}>Navbar</span>
+    <nav>
+      <div style={{ display: "flex", alignItems: "center", height: 60 }}>
+        {/* Leaf Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <LeafIcon size={34} />
+          <span style={{ fontWeight: 600, color: "#0F6E56" }}>Leafy</span>
         </div>
-
-        {/* Desktop Links */}
-        <ul style={{ display: "flex", gap: 4, listStyle: "none" }}>
-          {links.map(link => (
-            <li key={link}>
-              <button
-                onClick={() => setActive(link)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  background: active === link ? "#EEEDFE" : "transparent",
-                  color: active === link ? "#534AB7" : "#555",
-                }}
-              >
-                {link}
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        {/* CTA + Hamburger */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: "#534AB7", color: "#fff", cursor: "pointer" }}>
-            Get Started
-          </button>
-          <button onClick={() => setOpen(!open)} style={{ width: 36, height: 36, border: "1px solid #eee", borderRadius: 8, background: "transparent", cursor: "pointer" }}>
-            ☰
-          </button>
-        </div>
+        {/* ... rest of navbar */}
       </div>
-
-      {/* Mobile Dropdown */}
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "#fff", border: "1px solid #eee", borderRadius: 12, padding: 8, zIndex: 100 }}>
-          {links.map(link => (
-            <button
-              key={link}
-              onClick={() => { setActive(link); setOpen(false); }}
-              style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: active === link ? "#EEEDFE" : "transparent", color: active === link ? "#534AB7" : "#555", marginBottom: 2 }}
-            >
-              {link}
-            </button>
-          ))}
-        </div>
-      )}
     </nav>
   );
 }
