@@ -691,7 +691,7 @@ function Pattern({ goBack }) {
 
   const getPredefinedLists = useCallback(() => {
     return [
-    { id: 'STEFI LUCKY 44 NUMBER', name: ' LUCKY 44 BALLS ', numbers: [ 3,4,6,7,8,9,10,11,12,13,14,17,20,23,24,25,25,27,28,30,31,32,33,35,36,39,40,41,42,45,46,47,48,53,54,55,56,57,58,60,61,64,65,66,67,68,69,70,71,72,73,74 ], description: 'Numbers that spell BINGO' },
+    { id: 'STEFI LUCKY 44 NUMBER', name: ' STEFI LUCKY 44 BALLS ', numbers: [ 3,4,6,7,8,9,10,11,12,13,14,17,20,23,24,25,25,27,28,30,31,32,33,35,36,39,40,41,42,45,46,47,48,53,54,55,56,57,58,60,61,64,65,66,67,68,69,70,71,72,73,74 ], description: 'Numbers that spell BINGO' },
      
     ];
   }, []);
