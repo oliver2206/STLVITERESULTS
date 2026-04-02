@@ -2,7 +2,6 @@ import { useState } from "react";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;900&display=swap');
-
   .navbar {
     position: fixed;
     top: 0;
@@ -20,7 +19,6 @@ const styles = `
     z-index: 100;
     box-shadow: 0 2px 16px rgba(0,0,0,0.3);
   }
-
   .nav-logo {
     display: flex;
     align-items: center;
@@ -30,9 +28,7 @@ const styles = `
     text-decoration: none;
     transition: opacity 0.15s ease;
   }
-
   .nav-logo:hover { opacity: 0.8; }
-
   .logo-circle {
     width: 42px;
     height: 42px;
@@ -45,7 +41,6 @@ const styles = `
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     flex-shrink: 0;
   }
-
   .logo-title {
     color: #fff;
     font-size: 18px;
@@ -55,13 +50,9 @@ const styles = `
     text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
     white-space: nowrap;
   }
-
-  /* Hide logo text on very small screens */
   @media (max-width: 360px) {
     .logo-title { display: none; }
   }
-
-  /* PAGE WRAPPER */
   .page-wrapper {
     position: absolute;
     top: 64px;
@@ -77,7 +68,6 @@ const styles = `
     padding: 24px;
     box-sizing: border-box;
   }
-
   .placeholder-title {
     font-size: clamp(18px, 5vw, 32px);
     font-weight: 900;
@@ -86,7 +76,7 @@ const styles = `
   }
 `;
 
-export default function Generate({ onBack }) {
+export default function Generate({ goBack }) {
   const [state, setState] = useState(null);
 
   return (
@@ -105,8 +95,7 @@ export default function Generate({ onBack }) {
       >
         {/* NAVBAR */}
         <nav className="navbar">
-          {/* Logo — clicks back to menu */}
-          <div className="nav-logo" onClick={onBack} title="Back to Main Menu">
+          <div className="nav-logo" onClick={goBack} title="Back to Main Menu">
             <div className="logo-circle">🍀</div>
             <span className="logo-title">BINGO FORTUNE</span>
           </div>
