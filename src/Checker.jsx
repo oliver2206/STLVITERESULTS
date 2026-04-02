@@ -141,17 +141,35 @@ const styles = `
   .cn-modal-save   { padding:8px 16px; border-radius:8px; background:#534AB7; color:white; border:none; cursor:pointer; font-family:inherit; }
 
   /* ══════════════════════════════════════════
-     INLINE BINGO CARDS SECTION (below stats)
+     CARDS SECTION — GRID LAYOUT 4-5 PER ROW
   ══════════════════════════════════════════ */
 
   .cards-section { margin-bottom: 24px; }
 
   .cards-section-header {
-    display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:12px; flex-wrap:wrap; gap:8px;
   }
   .cards-section-title {
     font-size:16px; font-weight:900; color:#fff; letter-spacing:1px;
   }
+  .cards-section-right {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+
+  /* Cards per row selector */
+  .cards-per-row-label { font-size:12px; color:rgba(255,255,255,0.7); font-weight:600; }
+  .cards-per-row-btns  { display:flex; gap:4px; }
+  .cpr-btn {
+    width:30px; height:30px; border-radius:7px;
+    border:1.5px solid rgba(255,255,255,0.3);
+    background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7);
+    font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;
+    transition:all 0.15s;
+  }
+  .cpr-btn:hover { background:rgba(255,255,255,0.2); color:#fff; }
+  .cpr-btn.active { background:#fff; color:#534AB7; border-color:#fff; }
+
   .cards-add-btn {
     padding:8px 18px; border-radius:99px; background:rgba(255,255,255,0.15);
     border:1.5px solid rgba(255,255,255,0.4); color:#fff; font-size:13px;
@@ -160,7 +178,7 @@ const styles = `
   }
   .cards-add-btn:hover { background:rgba(255,255,255,0.25); }
 
-  /* new-card name input row (inline) */
+  /* new-card name input row */
   .cards-new-row {
     display:flex; gap:8px; margin-bottom:14px;
     background:rgba(255,255,255,0.12); border-radius:12px; padding:10px;
@@ -179,51 +197,98 @@ const styles = `
     white-space:nowrap; transition:all 0.15s;
   }
   .cards-new-create:hover { background:#f0eeff; }
-  .cards-new-cancel {
-    padding:9px 14px; border-radius:9px; background:rgba(255,255,255,0.1);
-    color:#fff; border:1.5px solid rgba(255,255,255,0.3); font-size:13px;
-    cursor:pointer; font-family:inherit;
+
+  /* ── CARD GRID ── */
+  .cards-grid {
+    display: grid;
+    gap: 10px;
+    align-items: start;
+  }
+  .cards-grid.cpr-1 { grid-template-columns: 1fr; }
+  .cards-grid.cpr-2 { grid-template-columns: repeat(2, 1fr); }
+  .cards-grid.cpr-3 { grid-template-columns: repeat(3, 1fr); }
+  .cards-grid.cpr-4 { grid-template-columns: repeat(4, 1fr); }
+  .cards-grid.cpr-5 { grid-template-columns: repeat(5, 1fr); }
+
+  /* On small screens, clamp to fewer columns */
+  @media (max-width: 900px) {
+    .cards-grid.cpr-5 { grid-template-columns: repeat(3, 1fr); }
+    .cards-grid.cpr-4 { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 620px) {
+    .cards-grid.cpr-5,
+    .cards-grid.cpr-4,
+    .cards-grid.cpr-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 400px) {
+    .cards-grid.cpr-5,
+    .cards-grid.cpr-4,
+    .cards-grid.cpr-3,
+    .cards-grid.cpr-2 { grid-template-columns: 1fr; }
   }
 
-  /* individual card */
+  /* ── individual inline card ── */
   .bc-inline-card {
-    background:rgba(255,255,255,0.97); border-radius:16px;
-    padding:16px; margin-bottom:14px; color:#222;
+    background:rgba(255,255,255,0.97); border-radius:14px;
+    padding:12px; color:#222;
     box-shadow:0 4px 20px rgba(0,0,0,0.15);
+    min-width: 0; /* prevent grid overflow */
   }
+
+  /* When 3+ cards per row, make header/tabs more compact */
+  .cards-grid.cpr-3 .bc-inline-card,
+  .cards-grid.cpr-4 .bc-inline-card,
+  .cards-grid.cpr-5 .bc-inline-card {
+    padding: 9px;
+    border-radius: 11px;
+  }
+
   .bc-inline-card-header {
-    display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
+    flex-wrap: wrap; gap: 4px;
   }
-  .bc-inline-card-name { font-size:15px; font-weight:900; }
-  .bc-inline-card-right { display:flex; align-items:center; gap:8px; }
-  .bc-pill      { font-size:11px; padding:3px 10px; border-radius:99px; font-weight:700; }
+  .bc-inline-card-name {
+    font-size:13px; font-weight:900;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .cards-grid.cpr-4 .bc-inline-card-name,
+  .cards-grid.cpr-5 .bc-inline-card-name { font-size: 11px; }
+
+  .bc-inline-card-right { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+  .bc-pill      { font-size:10px; padding:2px 8px; border-radius:99px; font-weight:700; white-space:nowrap; }
   .bc-pill-hits { background:#eee; color:#555; }
   .bc-pill-bingo{ background:#FFD700; color:#3a3080; }
   .bc-del-btn {
-    width:28px; height:28px; border-radius:50%; border:none; background:#f5f5f5;
-    color:#aaa; font-size:16px; cursor:pointer; display:flex; align-items:center;
-    justify-content:center; transition:all 0.15s;
+    width:24px; height:24px; border-radius:50%; border:none; background:#f5f5f5;
+    color:#aaa; font-size:14px; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; transition:all 0.15s; flex-shrink:0;
   }
   .bc-del-btn:hover { background:#ffe0e0; color:#e53935; }
 
   /* tabs */
-  .bc-inline-tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .bc-inline-tabs { display:flex; gap:4px; margin-bottom:8px; }
   .bc-inline-tab {
-    flex:1; padding:7px; border-radius:8px; border:1.5px solid #e0e0e0;
-    font-size:11px; font-weight:700; cursor:pointer; font-family:inherit;
-    background:white; color:#aaa; transition:all 0.15s;
+    flex:1; padding:5px 2px; border-radius:7px; border:1.5px solid #e0e0e0;
+    font-size:10px; font-weight:700; cursor:pointer; font-family:inherit;
+    background:white; color:#aaa; transition:all 0.15s; text-align:center;
   }
   .bc-inline-tab.active { border-color:#534AB7; background:#f0eeff; color:#534AB7; }
 
   /* col headers */
-  .bc-col-headers { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-bottom:4px; }
-  .bc-col-hdr { text-align:center; padding:6px 2px; border-radius:7px; font-weight:900; font-size:16px; font-family:'Bebas Neue',sans-serif; }
+  .bc-col-headers { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-bottom:3px; }
+  .bc-col-hdr {
+    text-align:center; padding:5px 2px; border-radius:6px;
+    font-weight:900; font-size:14px; font-family:'Bebas Neue',sans-serif;
+  }
+  .cards-grid.cpr-4 .bc-col-hdr,
+  .cards-grid.cpr-5 .bc-col-hdr { font-size: 11px; padding: 4px 1px; }
 
   /* input grid */
-  .bc-input-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+  .bc-input-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
   .bc-cell-input {
-    aspect-ratio:1; border-radius:7px; border:1.5px solid #e0e0e0;
-    text-align:center; font-size:13px; font-weight:700;
+    aspect-ratio:1; border-radius:6px; border:1.5px solid #e0e0e0;
+    text-align:center; font-size:11px; font-weight:700;
     font-family:'Montserrat',sans-serif; outline:none;
     background:#fafafa; color:#222; width:100%; padding:0;
     transition:border-color 0.15s, background 0.15s;
@@ -235,29 +300,33 @@ const styles = `
   .bc-cell-input.err { border-color:#e53935 !important; background:#fff5f5; }
   .bc-cell-input.ok  { border-color:#1D9E75 !important; background:#f0faf5; }
   .bc-cell-free {
-    aspect-ratio:1; border-radius:7px;
+    aspect-ratio:1; border-radius:6px;
     background:linear-gradient(135deg,#534AB7,#3a3080);
     display:flex; align-items:center; justify-content:center;
-    font-size:9px; font-weight:900; color:white; letter-spacing:0.5px;
+    font-size:8px; font-weight:900; color:white; letter-spacing:0.5px;
   }
-  .bc-hint { font-size:10px; color:#bbb; text-align:center; margin-top:6px; font-style:italic; }
-  .bc-err-msg { font-size:11px; color:#e53935; margin-top:5px; font-style:italic; }
+  .bc-hint { font-size:9px; color:#bbb; text-align:center; margin-top:5px; font-style:italic; }
+  .bc-err-msg { font-size:10px; color:#e53935; margin-top:4px; font-style:italic; }
 
   /* play grid */
-  .bc-play-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
-  .bc-play-cell { aspect-ratio:1; border-radius:7px; border:1.5px solid #e0e0e0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#ccc; background:#fafafa; transition:all 0.2s; }
-  .bc-play-cell.empty-val  { color:#ddd; font-size:18px; }
+  .bc-play-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
+  .bc-play-cell {
+    aspect-ratio:1; border-radius:6px; border:1.5px solid #e0e0e0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; color:#ccc; background:#fafafa; transition:all 0.2s;
+  }
+  .bc-play-cell.empty-val  { color:#ddd; font-size:16px; }
   .bc-play-cell.hit        { background:#3a3080; color:white; border-color:#3a3080; box-shadow:0 2px 6px rgba(58,48,128,0.3); transform:scale(1.04); }
   .bc-play-cell.bingo-ln   { background:#FFD700; color:#3a3080; border-color:#e6b800; box-shadow:0 2px 10px rgba(255,215,0,0.45); }
-  .bc-play-cell.free-cell  { background:linear-gradient(135deg,#534AB7,#3a3080); color:white; border-color:#3a3080; font-size:9px; font-weight:900; letter-spacing:0.5px; }
+  .bc-play-cell.free-cell  { background:linear-gradient(135deg,#534AB7,#3a3080); color:white; border-color:#3a3080; font-size:8px; font-weight:900; letter-spacing:0.5px; }
 
-  .bc-summary { margin-top:10px; padding:8px 12px; background:#f5f5f5; border-radius:9px; display:flex; justify-content:space-between; align-items:center; }
-  .bc-summary-lbl { font-size:11px; color:#999; font-weight:700; }
-  .bc-summary-val { font-size:18px; font-weight:900; color:#534AB7; }
+  .bc-summary { margin-top:8px; padding:6px 10px; background:#f5f5f5; border-radius:8px; display:flex; justify-content:space-between; align-items:center; }
+  .bc-summary-lbl { font-size:10px; color:#999; font-weight:700; }
+  .bc-summary-val { font-size:16px; font-weight:900; color:#534AB7; }
 
   .bc-bingo-banner {
-    margin-top:10px; padding:10px; border-radius:10px; text-align:center;
-    font-size:18px; font-weight:900; letter-spacing:2px; color:#3a3080;
+    margin-top:8px; padding:8px; border-radius:9px; text-align:center;
+    font-size:15px; font-weight:900; letter-spacing:2px; color:#3a3080;
     font-family:'Bebas Neue',sans-serif;
     background:linear-gradient(135deg,#FFD700,#FFA500);
     box-shadow:0 3px 12px rgba(255,165,0,0.4);
@@ -265,17 +334,23 @@ const styles = `
   }
   @keyframes bc-pulse { from{transform:scale(1)} to{transform:scale(1.02)} }
 
-  .bc-card-footer { display:flex; justify-content:flex-end; margin-top:8px; }
+  .bc-card-footer { display:flex; justify-content:flex-end; margin-top:6px; }
   .bc-clear-btn {
-    font-size:11px; padding:5px 14px; border-radius:8px;
+    font-size:10px; padding:4px 12px; border-radius:7px;
     border:1.5px solid #e0e0e0; background:white; color:#aaa;
     cursor:pointer; font-family:inherit; transition:all 0.15s;
   }
   .bc-clear-btn:hover { border-color:#e53935; color:#e53935; background:#fff5f5; }
+
+  /* bingo count banner at top */
+  .bingo-count-badge {
+    background:#FFD700; border-radius:99px; padding:6px 16px;
+    color:#3a3080; font-weight:900; font-size:13px; font-family:inherit;
+  }
 `;
 
 /* ── single inline card component ── */
-function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
+function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow }) {
   const [tab, setTab]       = useState("edit");
   const [errors, setErrors] = useState({});
   const colColors           = Object.values(LETTER_COLORS);
@@ -297,12 +372,10 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
   function handleCellChange(col, row, raw) {
     const next = card.grid.map(c=>[...c]);
     next[col][row] = raw;
-
     const key = `${col}-${row}`;
     const num = parseInt(raw);
     const [min,max] = COL_RANGES[COLS[col]];
     const newErr = {...errors};
-
     if (raw==="") {
       delete newErr[key];
     } else if (isNaN(num)||num<min||num>max) {
@@ -328,6 +401,7 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
 
   const errCount = Object.keys(errors).length;
   const hits     = hitCount();
+  const isCompact = cardsPerRow >= 3;
 
   return (
     <div className="bc-inline-card">
@@ -337,14 +411,18 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
         <div className="bc-inline-card-right">
           {hasBingo && <span className="bc-pill bc-pill-bingo">BINGO!</span>}
           <span className="bc-pill bc-pill-hits">{hits}/25</span>
-          <button className="bc-del-btn" onClick={()=>onDelete(idx)} title="Delete card">×</button>
+          <button className="bc-del-btn" onClick={()=>onDelete(idx)} title="Delete">×</button>
         </div>
       </div>
 
       {/* tabs */}
       <div className="bc-inline-tabs">
-        <button className={`bc-inline-tab${tab==="edit"?" active":""}`} onClick={()=>setTab("edit")}>✏️ Enter numbers</button>
-        <button className={`bc-inline-tab${tab==="play"?" active":""}`} onClick={()=>setTab("play")}>🎯 Check card</button>
+        <button className={`bc-inline-tab${tab==="edit"?" active":""}`} onClick={()=>setTab("edit")}>
+          {isCompact ? "✏️ Edit" : "✏️ Enter numbers"}
+        </button>
+        <button className={`bc-inline-tab${tab==="play"?" active":""}`} onClick={()=>setTab("play")}>
+          {isCompact ? "🎯 Play" : "🎯 Check card"}
+        </button>
       </div>
 
       {/* col headers */}
@@ -354,7 +432,7 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
         ))}
       </div>
 
-      {/* EDIT */}
+      {/* EDIT TAB */}
       {tab==="edit" && (<>
         <div className="bc-input-grid">
           {Array.from({length:5},(_,row)=>
@@ -376,14 +454,14 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
             })
           )}
         </div>
-        <div className="bc-hint">B:1–15 · I:16–30 · N:31–45 · G:46–60 · O:61–75 &nbsp;|&nbsp; 🟢 valid · 🔴 error</div>
+        {!isCompact && <div className="bc-hint">B:1–15 · I:16–30 · N:31–45 · G:46–60 · O:61–75</div>}
         {errCount>0 && <div className="bc-err-msg">⚠️ {errCount} invalid cell{errCount>1?"s":""}</div>}
         <div className="bc-card-footer">
           <button className="bc-clear-btn" onClick={handleClear}>🗑 Clear</button>
         </div>
       </>)}
 
-      {/* PLAY */}
+      {/* PLAY TAB */}
       {tab==="play" && (<>
         <div className="bc-play-grid">
           {Array.from({length:5},(_,row)=>
@@ -395,19 +473,19 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete }) {
               const isHit=!isEmpty&&allCalled.has(num);
               const inLine=isCellInLine(lines,col,row);
               let cls="bc-play-cell";
-              if (isEmpty)           cls+=" empty-val";
+              if (isEmpty)            cls+=" empty-val";
               else if (inLine&&isHit) cls+=" bingo-ln";
-              else if (isHit)        cls+=" hit";
+              else if (isHit)         cls+=" hit";
               return <div key={`${col}-${row}`} className={cls}>{isEmpty?"·":num}</div>;
             })
           )}
         </div>
         <div className="bc-summary">
-          <span className="bc-summary-lbl">Numbers matched</span>
-          <span className="bc-summary-val">{hits} / 25</span>
+          <span className="bc-summary-lbl">Matched</span>
+          <span className="bc-summary-val">{hits}/25</span>
         </div>
         {hasBingo && (
-          <div className="bc-bingo-banner">🎉 BINGO! {lines.length} line{lines.length>1?"s":""}!</div>
+          <div className="bc-bingo-banner">🎉 BINGO{lines.length>1?` x${lines.length}`:""}!</div>
         )}
       </>)}
     </div>
@@ -428,6 +506,7 @@ export default function Generate({ onBack }) {
   const [bingoCards,setBingoCards]           = useState([]);
   const [showNewRow,setShowNewRow]           = useState(false);
   const [newCardName,setNewCardName]         = useState("");
+  const [cardsPerRow,setCardsPerRow]         = useState(4); // ← NEW: default 4 per row
 
   const allCalled   = new Set([...calledThisRound,...calledPrev]);
   const totalDrawn  = calledThisRound.size+calledPrev.size;
@@ -483,7 +562,7 @@ export default function Generate({ onBack }) {
             <span className="logo-title">BINGO FORTUNE</span>
           </div>
           {bingoCnt>0 && (
-            <span style={{background:"#FFD700",borderRadius:"99px",padding:"6px 16px",color:"#3a3080",fontWeight:900,fontSize:13,fontFamily:"inherit"}}>
+            <span className="bingo-count-badge">
               🎉 {bingoCnt} BINGO{bingoCnt>1?"S":""}!
             </span>
           )}
@@ -491,7 +570,7 @@ export default function Generate({ onBack }) {
 
         <div className="page-wrapper">
 
-          {/* TOP CARD */}
+          {/* TOP CARD — Called Numbers */}
           <div className="cn-card">
             <div className="cn-header">
               <h2 className="cn-title">Called numbers</h2>
@@ -556,15 +635,36 @@ export default function Generate({ onBack }) {
             ))}
           </div>
 
-          {/* ══ BINGO CARDS SECTION — below stats ══ */}
+          {/* ══ BINGO CARDS SECTION ══ */}
           <div className="cards-section">
             <div className="cards-section-header">
               <span className="cards-section-title">
                 🃏 Bingo Cards {bingoCards.length>0 && `(${bingoCards.length})`}
               </span>
-              <button className="cards-add-btn" onClick={()=>{ setShowNewRow(r=>!r); setNewCardName(""); }}>
-                {showNewRow ? "✕ Cancel" : "+ Add card"}
-              </button>
+
+              <div className="cards-section-right">
+                {/* Cards per row selector */}
+                <span className="cards-per-row-label">Per row:</span>
+                <div className="cards-per-row-btns">
+                  {[1,2,3,4,5].map(n=>(
+                    <button
+                      key={n}
+                      className={`cpr-btn${cardsPerRow===n?" active":""}`}
+                      onClick={()=>setCardsPerRow(n)}
+                      title={`${n} card${n>1?"s":""} per row`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  className="cards-add-btn"
+                  onClick={()=>{ setShowNewRow(r=>!r); setNewCardName(""); }}
+                >
+                  {showNewRow ? "✕ Cancel" : "+ Add card"}
+                </button>
+              </div>
             </div>
 
             {/* Inline new-card row */}
@@ -582,23 +682,28 @@ export default function Generate({ onBack }) {
               </div>
             )}
 
-            {/* Rendered cards */}
             {bingoCards.length===0 && !showNewRow && (
               <div style={{textAlign:"center",color:"rgba(255,255,255,0.45)",fontSize:13,padding:"20px 0",fontStyle:"italic"}}>
                 No cards yet — press "+ Add card" to create one
               </div>
             )}
 
-            {bingoCards.map((card,i)=>(
-              <InlineBingoCard
-                key={i}
-                idx={i}
-                card={card}
-                allCalled={allCalled}
-                onUpdate={updateCard}
-                onDelete={deleteCard}
-              />
-            ))}
+            {/* ── GRID: cardsPerRow columns ── */}
+            {bingoCards.length > 0 && (
+              <div className={`cards-grid cpr-${cardsPerRow}`}>
+                {bingoCards.map((card,i)=>(
+                  <InlineBingoCard
+                    key={i}
+                    idx={i}
+                    card={card}
+                    allCalled={allCalled}
+                    onUpdate={updateCard}
+                    onDelete={deleteCard}
+                    cardsPerRow={cardsPerRow}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
