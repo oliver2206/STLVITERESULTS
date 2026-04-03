@@ -167,6 +167,46 @@ const styles = `
     backdrop-filter:blur(8px);
   }
   .cards-add-btn:hover { background:rgba(255,255,255,0.25); }
+  .cards-play-all-btn {
+    background:rgba(29,158,117,0.2);
+    border-color:rgba(29,158,117,0.6);
+    color:#4fffbd;
+  }
+  .cards-play-all-btn:hover { background:rgba(29,158,117,0.35); }
+  .cards-play-all-btn.active {
+    background:rgba(29,158,117,0.85);
+    color:#fff;
+    border-color:#1D9E75;
+  }
+  .cards-play-all-btn.active:hover { background:#1D9E75; }
+    border-color:rgba(255,215,0,0.6);
+    color:#FFD700;
+  }
+  .cards-add-btn-random:hover { background:rgba(255,215,0,0.35); }
+
+  .bulk-random-row {
+    display:flex; align-items:center; gap:6px;
+    background:rgba(255,215,0,0.1);
+    border:1.5px solid rgba(255,215,0,0.4);
+    border-radius:99px; padding:4px 6px 4px 12px;
+  }
+  .bulk-random-label { font-size:15px; line-height:1; }
+  .bulk-count-input {
+    width:68px; padding:4px 6px; border-radius:8px;
+    border:1.5px solid rgba(255,215,0,0.5);
+    background:rgba(255,255,255,0.15); color:#FFD700;
+    font-size:13px; font-weight:900; font-family:inherit;
+    text-align:center; outline:none;
+    -moz-appearance:textfield;
+  }
+  .bulk-count-input::-webkit-outer-spin-button,
+  .bulk-count-input::-webkit-inner-spin-button { -webkit-appearance:none; }
+  .bulk-count-input:focus { border-color:#FFD700; background:rgba(255,255,255,0.22); }
+  .bulk-random-row .cards-add-btn-random {
+    border-radius:99px; padding:5px 14px; font-size:12px;
+    border:none; background:rgba(255,215,0,0.85); color:#3a3080;
+  }
+  .bulk-random-row .cards-add-btn-random:hover { background:#FFD700; }
 
   .cards-new-row {
     display:flex; gap:8px; margin-bottom:14px;
@@ -186,6 +226,11 @@ const styles = `
     white-space:nowrap; transition:all 0.15s;
   }
   .cards-new-create:hover { background:#f0eeff; }
+  .cards-new-random {
+    background:linear-gradient(135deg,#FFD700,#FFA500);
+    color:#3a3080;
+  }
+  .cards-new-random:hover { background:linear-gradient(135deg,#ffe033,#ffb733); }
 
   .cards-grid { display: grid; gap: 10px; align-items: start; }
   .cards-grid.cpr-1 { grid-template-columns: 1fr; }
@@ -306,13 +351,29 @@ const styles = `
   }
   @keyframes bc-pulse { from{transform:scale(1)} to{transform:scale(1.02)} }
 
-  .bc-card-footer { display:flex; justify-content:flex-end; margin-top:6px; }
+  /* ── CARD FOOTER ── */
+  .bc-card-footer { display:flex; justify-content:flex-end; gap:6px; margin-top:6px; }
   .bc-clear-btn {
     font-size:10px; padding:4px 12px; border-radius:7px;
     border:1.5px solid #e0e0e0; background:white; color:#aaa;
     cursor:pointer; font-family:inherit; transition:all 0.15s;
   }
   .bc-clear-btn:hover { border-color:#e53935; color:#e53935; background:#fff5f5; }
+
+  /* ── RANDOM GENERATE BUTTON ── */
+  .bc-random-btn {
+    font-size:10px; padding:4px 12px; border-radius:7px;
+    border:1.5px solid #a09ae0; background:#f0eeff; color:#534AB7;
+    cursor:pointer; font-family:inherit; font-weight:700;
+    transition:all 0.18s; display:flex; align-items:center; gap:4px;
+  }
+  .bc-random-btn:hover {
+    background:#534AB7; color:white; border-color:#534AB7;
+    transform:translateY(-1px); box-shadow:0 3px 10px rgba(83,74,183,0.3);
+  }
+  .bc-random-btn:active { transform:translateY(0); }
+  .bc-random-btn.spinning .bc-dice-icon { display:inline-block; animation:bc-spin 0.4s ease-out; }
+  @keyframes bc-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 
   .bingo-count-badge {
     background:#FFD700; border-radius:99px; padding:6px 16px;
@@ -347,7 +408,6 @@ const styles = `
   .freq-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
   .freq-legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:#666; }
   .freq-legend-dot { width:12px; height:12px; border-radius:99px; flex-shrink:0; }
-
 `;
 
 /* ── FREQUENCY TRACKER COMPONENT ── */
@@ -361,10 +421,8 @@ function FrequencyTracker({ freqMap }) {
     .filter(([,c]) => freqFilter==="all" || (freqFilter==="5"?c>=5:c===parseInt(freqFilter)))
     .sort((a,b) => b[1]-a[1] || a[0]-b[0]);
   const legendItems = [[1,"#1D9E75","#e8f8f0"],[2,"#185FA5","#e6f4fb"],[3,"#534AB7","#eeecfd"],[4,"#BA7517","#faeeda"],[5,"#A32D2D","#fcebeb"]];
-  const total = Object.keys(freqMap).length;
   return (
     <div className="freq-card">
-      {/* Clickable header — always visible */}
       <div className="freq-header" onClick={()=>setOpen(o=>!o)}>
         <div className="freq-title-row">
           <h2 className="freq-title">📊 Number Frequency</h2>
@@ -380,8 +438,6 @@ function FrequencyTracker({ freqMap }) {
         </div>
         <span className={`freq-chevron${open?" open":""}`}>⌄</span>
       </div>
-
-      {/* Collapsible body */}
       <div className={`freq-body${open?"":" collapsed"}`}>
         <div className="freq-legend" style={{marginTop:14}}>
           {legendItems.map(([x,col,bg])=>{
@@ -418,10 +474,13 @@ function FrequencyTracker({ freqMap }) {
 }
 
 /* ── single inline card component ── */
-function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow }) {
-  const [tab, setTab]       = useState("edit");
-  const [errors, setErrors] = useState({});
-  const colColors           = Object.values(LETTER_COLORS);
+function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow, forceTab }) {
+  const [localTab, setLocalTab] = useState("edit");
+  const tab     = forceTab || localTab;
+  const setTab  = (t) => { setLocalTab(t); };
+  const [errors, setErrors]     = useState({});
+  const [spinning, setSpinning] = useState(false);
+  const colColors               = Object.values(LETTER_COLORS);
 
   const lines    = checkBingo(card.grid, allCalled);
   const hasBingo = lines.length > 0;
@@ -465,6 +524,33 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
     const blank = emptyGrid();
     setErrors({});
     onUpdate(idx, blank);
+  }
+
+  // ── NEW: random fill ──
+  function handleRandom() {
+    const next = emptyGrid();
+    for (let col = 0; col < 5; col++) {
+      const [min, max] = COL_RANGES[COLS[col]];
+      // Build pool for this column
+      const pool = [];
+      for (let n = min; n <= max; n++) pool.push(n);
+      // Fisher-Yates shuffle
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      // Fill 5 rows — skip FREE cell (col=2, row=2)
+      let picked = 0;
+      for (let row = 0; row < 5; row++) {
+        if (col === 2 && row === 2) continue; // FREE
+        next[col][row] = String(pool[picked++]);
+      }
+    }
+    setErrors({});
+    // Trigger spin animation
+    setSpinning(true);
+    setTimeout(() => setSpinning(false), 450);
+    onUpdate(idx, next);
   }
 
   const errCount = Object.keys(errors).length;
@@ -521,6 +607,15 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
         {!isCompact && <div className="bc-hint">B:1–15 · I:16–30 · N:31–45 · G:46–60 · O:61–75</div>}
         {errCount>0 && <div className="bc-err-msg">⚠️ {errCount} invalid cell{errCount>1?"s":""}</div>}
         <div className="bc-card-footer">
+          {/* ── RANDOM GENERATE BUTTON ── */}
+          <button
+            className={`bc-random-btn${spinning?" spinning":""}`}
+            onClick={handleRandom}
+            title="Fill card with random valid numbers"
+          >
+            <span className="bc-dice-icon">🎲</span>
+            {isCompact ? "Random" : "Random fill"}
+          </button>
           <button className="bc-clear-btn" onClick={handleClear}>🗑 Clear</button>
         </div>
       </>)}
@@ -557,12 +652,9 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
 
 /* ── MAIN ── */
 export default function Generate({ onBack }) {
-  const [maxBalls,setMaxBalls]             = useState(48);
-  // Current round's called numbers — reset to empty on each New Round
+  const [maxBalls,setMaxBalls]               = useState(48);
   const [calledThisRound,setCalledThisRound] = useState(new Set());
-  // All numbers called in previous rounds — for display styling only, never affects logic
   const [prevNumbers,setPrevNumbers]         = useState(new Set());
-  // Frequency map: how many times each number has been called across ALL rounds
   const [freqMap,setFreqMap]                 = useState({});
   const [roundsDone,setRoundsDone]           = useState(0);
   const [roundNum,setRoundNum]               = useState(1);
@@ -574,8 +666,9 @@ export default function Generate({ onBack }) {
   const [showNewRow,setShowNewRow]           = useState(false);
   const [newCardName,setNewCardName]         = useState("");
   const [cardsPerRow,setCardsPerRow]         = useState(4);
+  const [bulkCount,setBulkCount]             = useState(10);
+  const [globalTab,setGlobalTab]             = useState(null); // null=individual, "play"=all play, "edit"=all edit
 
-  // What bingo cards check against = current round only
   const calledNumbers  = calledThisRound;
   const totalDrawn     = calledThisRound.size;
   const remaining      = 75 - totalDrawn;
@@ -588,12 +681,10 @@ export default function Generate({ onBack }) {
     return "";
   }
 
-  // Toggle current-round ball — block adding when limit reached
   function toggleBall(n) {
     const alreadyCalled = calledThisRound.has(n);
     if (!alreadyCalled && calledThisRound.size >= maxBalls) return;
     setCalledThisRound(p => { const s = new Set(p); alreadyCalled ? s.delete(n) : s.add(n); return s; });
-    // Update frequency: +1 when calling, -1 when uncalling (min 0)
     setFreqMap(f => { const m = {...f}; if (alreadyCalled) { m[n] = Math.max(0, (m[n]||0) - 1); if (m[n]===0) delete m[n]; } else { m[n] = (m[n]||0) + 1; } return m; });
   }
 
@@ -618,13 +709,11 @@ export default function Generate({ onBack }) {
     setFreqMap(f => ({ ...f, [pick]: (f[pick]||0) + 1 }));
   }
 
-  // New Round: save current calls to prevNumbers for purple styling, then reset current round
   function newRound() {
     setPrevNumbers(new Set(calledThisRound));
     setCalledThisRound(new Set());
     setRoundsDone(r => r + 1);
     setRoundNum(r => r + 1);
-    // freqMap keeps accumulating — do NOT reset it here
   }
 
   function resetAll() {
@@ -637,10 +726,47 @@ export default function Generate({ onBack }) {
 
   function saveLabel() { setLabel(labelDraft); setShowModal(false); }
 
+  function generateRandomGrid() {
+    const next = emptyGrid();
+    for (let col = 0; col < 5; col++) {
+      const [min, max] = COL_RANGES[COLS[col]];
+      const pool = [];
+      for (let n = min; n <= max; n++) pool.push(n);
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      let picked = 0;
+      for (let row = 0; row < 5; row++) {
+        if (col === 2 && row === 2) continue;
+        next[col][row] = String(pool[picked++]);
+      }
+    }
+    return next;
+  }
+
   function createCard() {
     const name = newCardName.trim() || `Card ${bingoCards.length + 1}`;
     setBingoCards(p => [...p, { name, grid: emptyGrid() }]);
     setNewCardName("");
+    setShowNewRow(false);
+  }
+
+  function createRandomCard() {
+    const name = newCardName.trim() || `Card ${bingoCards.length + 1}`;
+    setBingoCards(p => [...p, { name, grid: generateRandomGrid() }]);
+    setNewCardName("");
+    setShowNewRow(false);
+  }
+
+  function createBulkRandomCards(count) {
+    setBingoCards(p => {
+      const extras = Array.from({ length: count }, (_, i) => ({
+        name: `Card ${p.length + i + 1}`,
+        grid: generateRandomGrid(),
+      }));
+      return [...p, ...extras];
+    });
     setShowNewRow(false);
   }
   function updateCard(idx, grid) { setBingoCards(p => p.map((c,i) => i===idx ? {...c, grid} : c)); }
@@ -653,7 +779,6 @@ export default function Generate({ onBack }) {
       <style>{styles}</style>
       <div style={{position:"fixed",inset:0,width:"100vw",height:"100vh",background:"linear-gradient(135deg,#3a6fd8 0%,#6a4fd8 50%,#4a8fd8 100%)",overflow:"hidden"}}>
 
-        {/* NAVBAR */}
         <nav className="navbar">
           <div className="nav-logo" onClick={onBack}>
             <div className="logo-circle">🍀</div>
@@ -668,7 +793,6 @@ export default function Generate({ onBack }) {
 
         <div className="page-wrapper">
 
-          {/* TOP CARD — Called Numbers */}
           <div className="cn-card">
             <div className="cn-header">
               <h2 className="cn-title">Called numbers</h2>
@@ -699,7 +823,6 @@ export default function Generate({ onBack }) {
             </div>
           </div>
 
-          {/* BOARD */}
           <div className="cn-card">
             <div className="cn-letter-headers">
               {Object.entries(LETTER_COLORS).map(([l,info])=>(
@@ -719,14 +842,12 @@ export default function Generate({ onBack }) {
             </div>
           </div>
 
-          {/* ACTIONS */}
           <div className="cn-actions">
             <button className="cn-action-btn draw" onClick={drawRandom}>Draw random</button>
             <button className="cn-action-btn new"  onClick={newRound}>New round</button>
             <button className="cn-action-btn rst"  onClick={resetAll}>Reset</button>
           </div>
 
-          {/* STATS */}
           <div className="cn-stats">
             {[["Drawn",totalDrawn],["Remaining",remaining],["Rounds done",roundsDone],["Max / round",maxBalls]].map(([l,v])=>(
               <div key={l} className="cn-stat-card">
@@ -736,11 +857,8 @@ export default function Generate({ onBack }) {
             ))}
           </div>
 
-
-          {/* FREQUENCY TRACKER */}
           {Object.keys(freqMap).length > 0 && <FrequencyTracker freqMap={freqMap} />}
 
-          {/* BINGO CARDS SECTION */}
           <div className="cards-section">
             <div className="cards-section-header">
               <span className="cards-section-title">
@@ -754,9 +872,29 @@ export default function Generate({ onBack }) {
                       onClick={()=>setCardsPerRow(n)} title={`${n} card${n>1?"s":""} per row`}>{n}</button>
                   ))}
                 </div>
+                <div className="bulk-random-row">
+                  <span className="bulk-random-label">🎲</span>
+                  <input
+                    className="bulk-count-input"
+                    type="number" min={1} max={10000}
+                    value={bulkCount}
+                    onChange={e => setBulkCount(Math.max(1, Math.min(10000, parseInt(e.target.value)||1)))}
+                  />
+                  <button className="cards-add-btn cards-add-btn-random" onClick={()=>createBulkRandomCards(bulkCount)}>
+                    Generate
+                  </button>
+                </div>
                 <button className="cards-add-btn" onClick={()=>{ setShowNewRow(r=>!r); setNewCardName(""); }}>
                   {showNewRow ? "✕ Cancel" : "+ Add card"}
                 </button>
+                {bingoCards.length > 0 && (
+                  <button
+                    className={`cards-add-btn cards-play-all-btn${globalTab==="play" ? " active" : ""}`}
+                    onClick={()=>setGlobalTab(t => t==="play" ? "edit" : "play")}
+                  >
+                    {globalTab==="play" ? "✏️ Edit All" : "▶ Play All"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -769,13 +907,14 @@ export default function Generate({ onBack }) {
                   onKeyDown={e=>e.key==="Enter"&&createCard()}
                   autoFocus
                 />
-                <button className="cards-new-create" onClick={createCard}>Create</button>
+                <button className="cards-new-create cards-new-random" onClick={createRandomCard} title="Create with random numbers">🎲 Random</button>
+                <button className="cards-new-create" onClick={createCard}>Create blank</button>
               </div>
             )}
 
             {bingoCards.length===0 && !showNewRow && (
               <div style={{textAlign:"center",color:"rgba(255,255,255,0.45)",fontSize:13,padding:"20px 0",fontStyle:"italic"}}>
-                No cards yet — press "+ Add card" to create one
+                No cards yet — press "+ Add card" or "🎲 ×10 Random" to get started
               </div>
             )}
 
@@ -788,6 +927,7 @@ export default function Generate({ onBack }) {
                     onUpdate={updateCard}
                     onDelete={deleteCard}
                     cardsPerRow={cardsPerRow}
+                    forceTab={globalTab}
                   />
                 ))}
               </div>
@@ -797,7 +937,6 @@ export default function Generate({ onBack }) {
         </div>
       </div>
 
-      {/* LABEL MODAL */}
       {showModal && (
         <div className="cn-modal-overlay">
           <div className="cn-modal">
