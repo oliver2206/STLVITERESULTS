@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const MAX_OPTIONS = [25, 30, 35, 40, 44, 48];
+const MAX_OPTIONS = [25, 30, 35, 40, 44, 48, 75];
 
 const LETTER_COLORS = {
   B: { bg: "#e8f8f0", color: "#1D9E75", range: "1–15" },
@@ -118,6 +118,8 @@ const styles = `
   .cn-ball { aspect-ratio:1; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; cursor:pointer; transition:all 0.2s; border:1px solid #ddd; background:white; color:#aaa; font-weight:600; }
   .cn-ball.called { background:#3a3080; color:white; border-color:#3a3080; }
   .cn-ball.prev   { background:#d4d0f5; color:#534AB7; border-color:#a09ae0; }
+  .cn-ball.locked { opacity:0.35; cursor:not-allowed; }
+  .cn-limit-banner { background:#fff3cd; border:1px solid #ffc107; border-radius:10px; padding:8px 14px; margin-bottom:12px; font-size:12px; color:#856404; font-weight:700; text-align:center; }
 
   .cn-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px; }
   .cn-action-btn { padding:12px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; background:white; transition:all 0.15s; }
@@ -131,7 +133,6 @@ const styles = `
   .cn-stat-num   { font-size:24px; font-weight:900; color:#222; }
   .cn-stat-label { font-size:11px; color:#888; margin-top:4px; }
 
-  /* ── LABEL MODAL ── */
   .cn-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:999; }
   .cn-modal { background:white; border-radius:16px; padding:24px; width:300px; color:#222; }
   .cn-modal h3 { margin:0 0 12px; font-size:16px; }
@@ -140,32 +141,21 @@ const styles = `
   .cn-modal-cancel { padding:8px 16px; border-radius:8px; border:1px solid #ccc; background:white; cursor:pointer; font-family:inherit; }
   .cn-modal-save   { padding:8px 16px; border-radius:8px; background:#534AB7; color:white; border:none; cursor:pointer; font-family:inherit; }
 
-  /* ══════════════════════════════════════════
-     CARDS SECTION — GRID LAYOUT 4-5 PER ROW
-  ══════════════════════════════════════════ */
-
   .cards-section { margin-bottom: 24px; }
-
   .cards-section-header {
     display:flex; justify-content:space-between; align-items:center;
     margin-bottom:12px; flex-wrap:wrap; gap:8px;
   }
-  .cards-section-title {
-    font-size:16px; font-weight:900; color:#fff; letter-spacing:1px;
-  }
-  .cards-section-right {
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  }
+  .cards-section-title { font-size:16px; font-weight:900; color:#fff; letter-spacing:1px; }
+  .cards-section-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 
-  /* Cards per row selector */
   .cards-per-row-label { font-size:12px; color:rgba(255,255,255,0.7); font-weight:600; }
   .cards-per-row-btns  { display:flex; gap:4px; }
   .cpr-btn {
     width:30px; height:30px; border-radius:7px;
     border:1.5px solid rgba(255,255,255,0.3);
     background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7);
-    font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;
-    transition:all 0.15s;
+    font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:all 0.15s;
   }
   .cpr-btn:hover { background:rgba(255,255,255,0.2); color:#fff; }
   .cpr-btn.active { background:#fff; color:#534AB7; border-color:#fff; }
@@ -178,7 +168,6 @@ const styles = `
   }
   .cards-add-btn:hover { background:rgba(255,255,255,0.25); }
 
-  /* new-card name input row */
   .cards-new-row {
     display:flex; gap:8px; margin-bottom:14px;
     background:rgba(255,255,255,0.12); border-radius:12px; padding:10px;
@@ -198,19 +187,13 @@ const styles = `
   }
   .cards-new-create:hover { background:#f0eeff; }
 
-  /* ── CARD GRID ── */
-  .cards-grid {
-    display: grid;
-    gap: 10px;
-    align-items: start;
-  }
+  .cards-grid { display: grid; gap: 10px; align-items: start; }
   .cards-grid.cpr-1 { grid-template-columns: 1fr; }
   .cards-grid.cpr-2 { grid-template-columns: repeat(2, 1fr); }
   .cards-grid.cpr-3 { grid-template-columns: repeat(3, 1fr); }
   .cards-grid.cpr-4 { grid-template-columns: repeat(4, 1fr); }
   .cards-grid.cpr-5 { grid-template-columns: repeat(5, 1fr); }
 
-  /* On small screens, clamp to fewer columns */
   @media (max-width: 900px) {
     .cards-grid.cpr-5 { grid-template-columns: repeat(3, 1fr); }
     .cards-grid.cpr-4 { grid-template-columns: repeat(3, 1fr); }
@@ -227,21 +210,15 @@ const styles = `
     .cards-grid.cpr-2 { grid-template-columns: 1fr; }
   }
 
-  /* ── individual inline card ── */
   .bc-inline-card {
     background:rgba(255,255,255,0.97); border-radius:14px;
     padding:12px; color:#222;
     box-shadow:0 4px 20px rgba(0,0,0,0.15);
-    min-width: 0; /* prevent grid overflow */
+    min-width: 0;
   }
-
-  /* When 3+ cards per row, make header/tabs more compact */
   .cards-grid.cpr-3 .bc-inline-card,
   .cards-grid.cpr-4 .bc-inline-card,
-  .cards-grid.cpr-5 .bc-inline-card {
-    padding: 9px;
-    border-radius: 11px;
-  }
+  .cards-grid.cpr-5 .bc-inline-card { padding: 9px; border-radius: 11px; }
 
   .bc-inline-card-header {
     display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
@@ -249,8 +226,7 @@ const styles = `
   }
   .bc-inline-card-name {
     font-size:13px; font-weight:900;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    max-width: 100%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
   .cards-grid.cpr-4 .bc-inline-card-name,
   .cards-grid.cpr-5 .bc-inline-card-name { font-size: 11px; }
@@ -266,7 +242,6 @@ const styles = `
   }
   .bc-del-btn:hover { background:#ffe0e0; color:#e53935; }
 
-  /* tabs */
   .bc-inline-tabs { display:flex; gap:4px; margin-bottom:8px; }
   .bc-inline-tab {
     flex:1; padding:5px 2px; border-radius:7px; border:1.5px solid #e0e0e0;
@@ -275,7 +250,6 @@ const styles = `
   }
   .bc-inline-tab.active { border-color:#534AB7; background:#f0eeff; color:#534AB7; }
 
-  /* col headers */
   .bc-col-headers { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-bottom:3px; }
   .bc-col-hdr {
     text-align:center; padding:5px 2px; border-radius:6px;
@@ -284,7 +258,6 @@ const styles = `
   .cards-grid.cpr-4 .bc-col-hdr,
   .cards-grid.cpr-5 .bc-col-hdr { font-size: 11px; padding: 4px 1px; }
 
-  /* input grid */
   .bc-input-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
   .bc-cell-input {
     aspect-ratio:1; border-radius:6px; border:1.5px solid #e0e0e0;
@@ -308,7 +281,6 @@ const styles = `
   .bc-hint { font-size:9px; color:#bbb; text-align:center; margin-top:5px; font-style:italic; }
   .bc-err-msg { font-size:10px; color:#e53935; margin-top:4px; font-style:italic; }
 
-  /* play grid */
   .bc-play-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
   .bc-play-cell {
     aspect-ratio:1; border-radius:6px; border:1.5px solid #e0e0e0;
@@ -342,12 +314,108 @@ const styles = `
   }
   .bc-clear-btn:hover { border-color:#e53935; color:#e53935; background:#fff5f5; }
 
-  /* bingo count banner at top */
   .bingo-count-badge {
     background:#FFD700; border-radius:99px; padding:6px 16px;
     color:#3a3080; font-weight:900; font-size:13px; font-family:inherit;
   }
+
+  /* ── FREQUENCY TRACKER ── */
+  .freq-card { background:rgba(255,255,255,0.95); border-radius:16px; padding:0; margin-bottom:16px; color:#222; overflow:hidden; }
+  .freq-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; cursor:pointer; user-select:none; }
+  .freq-header:hover { background:rgba(0,0,0,0.02); }
+  .freq-title { margin:0; font-size:18px; font-weight:900; letter-spacing:1px; }
+  .freq-title-row { display:flex; align-items:center; gap:10px; }
+  .freq-summary-pills { display:flex; gap:5px; flex-wrap:wrap; }
+  .freq-summary-pill { font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; }
+  .freq-chevron { font-size:18px; color:#999; transition:transform 0.25s; line-height:1; }
+  .freq-chevron.open { transform:rotate(180deg); }
+  .freq-body { padding:0 20px 20px; border-top:1px solid #f0f0f0; }
+  .freq-body.collapsed { display:none; }
+  .freq-filter-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .freq-filter-btn { padding:5px 14px; border-radius:99px; border:1px solid #bbb; background:white; color:#333; cursor:pointer; font-size:12px; font-family:inherit; transition:all 0.15s; }
+  .freq-filter-btn.active { background:#534AB7; color:white; border-color:#534AB7; }
+  .freq-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(52px,1fr)); gap:8px; }
+  .freq-ball { border-radius:12px; padding:6px 4px; text-align:center; border:1.5px solid #e0e0e0; background:#fafafa; }
+  .freq-ball-num { font-size:13px; font-weight:900; color:#222; }
+  .freq-ball-cnt { font-size:10px; font-weight:700; margin-top:2px; border-radius:99px; padding:1px 6px; display:inline-block; }
+  .freq-ball-cnt.x1 { background:#e8f8f0; color:#1D9E75; }
+  .freq-ball-cnt.x2 { background:#e6f4fb; color:#185FA5; }
+  .freq-ball-cnt.x3 { background:#eeecfd; color:#534AB7; }
+  .freq-ball-cnt.x4 { background:#faeeda; color:#BA7517; }
+  .freq-ball-cnt.x5p{ background:#fcebeb; color:#A32D2D; }
+  .freq-empty { text-align:center; color:#bbb; font-size:13px; padding:20px 0; font-style:italic; }
+  .freq-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .freq-legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:#666; }
+  .freq-legend-dot { width:12px; height:12px; border-radius:99px; flex-shrink:0; }
+
 `;
+
+/* ── FREQUENCY TRACKER COMPONENT ── */
+function FrequencyTracker({ freqMap }) {
+  const [freqFilter, setFreqFilter] = useState("all");
+  const [open, setOpen] = useState(true);
+  const cntClass = c => c>=5?"x5p":c===4?"x4":c===3?"x3":c===2?"x2":"x1";
+  const cntLabel = c => c>=5?`${c}x`:c===4?"4x":c===3?"3x":c===2?"2x":"1x";
+  const entries = Object.entries(freqMap)
+    .map(([n,c]) => [parseInt(n),c])
+    .filter(([,c]) => freqFilter==="all" || (freqFilter==="5"?c>=5:c===parseInt(freqFilter)))
+    .sort((a,b) => b[1]-a[1] || a[0]-b[0]);
+  const legendItems = [[1,"#1D9E75","#e8f8f0"],[2,"#185FA5","#e6f4fb"],[3,"#534AB7","#eeecfd"],[4,"#BA7517","#faeeda"],[5,"#A32D2D","#fcebeb"]];
+  const total = Object.keys(freqMap).length;
+  return (
+    <div className="freq-card">
+      {/* Clickable header — always visible */}
+      <div className="freq-header" onClick={()=>setOpen(o=>!o)}>
+        <div className="freq-title-row">
+          <h2 className="freq-title">📊 Number Frequency</h2>
+          {!open && (
+            <div className="freq-summary-pills">
+              {legendItems.map(([x,col,bg])=>{
+                const cnt = Object.values(freqMap).filter(c=>x===5?c>=5:c===x).length;
+                if (!cnt) return null;
+                return <span key={x} className="freq-summary-pill" style={{background:bg,color:col}}>{x===5?"5x+":x+"x"} ×{cnt}</span>;
+              })}
+            </div>
+          )}
+        </div>
+        <span className={`freq-chevron${open?" open":""}`}>⌄</span>
+      </div>
+
+      {/* Collapsible body */}
+      <div className={`freq-body${open?"":" collapsed"}`}>
+        <div className="freq-legend" style={{marginTop:14}}>
+          {legendItems.map(([x,col,bg])=>{
+            const cnt = Object.values(freqMap).filter(c=>x===5?c>=5:c===x).length;
+            if (!cnt) return null;
+            return (
+              <div key={x} className="freq-legend-item">
+                <div className="freq-legend-dot" style={{background:bg,border:`1.5px solid ${col}`}}/>
+                <span style={{color:col,fontWeight:700}}>{x===5?"5x+":x+"x"}</span>
+                <span> — {cnt} number{cnt!==1?"s":""}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="freq-filter-row">
+          {[["all","All"],["1","1x"],["2","2x"],["3","3x"],["4","4x"],["5","5x+"]].map(([v,l])=>(
+            <button key={v} className={`freq-filter-btn${freqFilter===v?" active":""}`} onClick={()=>setFreqFilter(v)}>{l}</button>
+          ))}
+        </div>
+        {entries.length===0
+          ? <div className="freq-empty">No numbers match this filter</div>
+          : <div className="freq-grid">
+              {entries.map(([n,c])=>(
+                <div key={n} className="freq-ball">
+                  <div className="freq-ball-num">{n}</div>
+                  <div className={`freq-ball-cnt ${cntClass(c)}`}>{cntLabel(c)}</div>
+                </div>
+              ))}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
 
 /* ── single inline card component ── */
 function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow }) {
@@ -405,7 +473,6 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
 
   return (
     <div className="bc-inline-card">
-      {/* header */}
       <div className="bc-inline-card-header">
         <span className="bc-inline-card-name">🃏 {card.name}</span>
         <div className="bc-inline-card-right">
@@ -415,7 +482,6 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
         </div>
       </div>
 
-      {/* tabs */}
       <div className="bc-inline-tabs">
         <button className={`bc-inline-tab${tab==="edit"?" active":""}`} onClick={()=>setTab("edit")}>
           {isCompact ? "✏️ Edit" : "✏️ Enter numbers"}
@@ -425,14 +491,12 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
         </button>
       </div>
 
-      {/* col headers */}
       <div className="bc-col-headers">
         {COLS.map((l,ci)=>(
           <div key={l} className="bc-col-hdr" style={{background:colColors[ci].bg, color:colColors[ci].color}}>{l}</div>
         ))}
       </div>
 
-      {/* EDIT TAB */}
       {tab==="edit" && (<>
         <div className="bc-input-grid">
           {Array.from({length:5},(_,row)=>
@@ -461,7 +525,6 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
         </div>
       </>)}
 
-      {/* PLAY TAB */}
       {tab==="play" && (<>
         <div className="bc-play-grid">
           {Array.from({length:5},(_,row)=>
@@ -494,9 +557,13 @@ function InlineBingoCard({ card, idx, allCalled, onUpdate, onDelete, cardsPerRow
 
 /* ── MAIN ── */
 export default function Generate({ onBack }) {
-  const [maxBalls,setMaxBalls]               = useState(48);
+  const [maxBalls,setMaxBalls]             = useState(48);
+  // Current round's called numbers — reset to empty on each New Round
   const [calledThisRound,setCalledThisRound] = useState(new Set());
-  const [calledPrev,setCalledPrev]           = useState(new Set());
+  // All numbers called in previous rounds — for display styling only, never affects logic
+  const [prevNumbers,setPrevNumbers]         = useState(new Set());
+  // Frequency map: how many times each number has been called across ALL rounds
+  const [freqMap,setFreqMap]                 = useState({});
   const [roundsDone,setRoundsDone]           = useState(0);
   const [roundNum,setRoundNum]               = useState(1);
   const [inputVal,setInputVal]               = useState("");
@@ -506,49 +573,80 @@ export default function Generate({ onBack }) {
   const [bingoCards,setBingoCards]           = useState([]);
   const [showNewRow,setShowNewRow]           = useState(false);
   const [newCardName,setNewCardName]         = useState("");
-  const [cardsPerRow,setCardsPerRow]         = useState(4); // ← NEW: default 4 per row
+  const [cardsPerRow,setCardsPerRow]         = useState(4);
 
-  const allCalled   = new Set([...calledThisRound,...calledPrev]);
-  const totalDrawn  = calledThisRound.size+calledPrev.size;
-  const remaining   = 75-totalDrawn;
-  const progressPct = Math.min(100,(calledThisRound.size/maxBalls)*100);
+  // What bingo cards check against = current round only
+  const calledNumbers  = calledThisRound;
+  const totalDrawn     = calledThisRound.size;
+  const remaining      = 75 - totalDrawn;
+  const progressPct    = Math.min(100, (calledThisRound.size / maxBalls) * 100);
+  const limitReached   = calledThisRound.size >= maxBalls;
 
-  function getBallState(n){ return calledThisRound.has(n)?"called":calledPrev.has(n)?"prev":""; }
-  function toggleBall(n){
-    if (calledPrev.has(n)) return;
-    setCalledThisRound(p=>{const s=new Set(p);s.has(n)?s.delete(n):s.add(n);return s;});
+  function getBallState(n) {
+    if (calledThisRound.has(n)) return "called";
+    if (prevNumbers.has(n))     return "prev";
+    return "";
   }
-  function highlightNumber(){
-    const v=parseInt(inputVal);
-    if (isNaN(v)||v<1||v>75) return;
-    if (!calledThisRound.has(v)&&!calledPrev.has(v)) setCalledThisRound(p=>new Set([...p,v]));
+
+  // Toggle current-round ball — block adding when limit reached
+  function toggleBall(n) {
+    const alreadyCalled = calledThisRound.has(n);
+    if (!alreadyCalled && calledThisRound.size >= maxBalls) return;
+    setCalledThisRound(p => { const s = new Set(p); alreadyCalled ? s.delete(n) : s.add(n); return s; });
+    // Update frequency: +1 when calling, -1 when uncalling (min 0)
+    setFreqMap(f => { const m = {...f}; if (alreadyCalled) { m[n] = Math.max(0, (m[n]||0) - 1); if (m[n]===0) delete m[n]; } else { m[n] = (m[n]||0) + 1; } return m; });
+  }
+
+  function highlightNumber() {
+    const v = parseInt(inputVal);
+    if (isNaN(v) || v < 1 || v > 75) { setInputVal(""); return; }
+    if (!calledThisRound.has(v) && calledThisRound.size >= maxBalls) { setInputVal(""); return; }
+    if (!calledThisRound.has(v)) {
+      setCalledThisRound(p => new Set([...p, v]));
+      setFreqMap(f => ({ ...f, [v]: (f[v]||0) + 1 }));
+    }
     setInputVal("");
   }
-  function drawRandom(){
-    if (calledThisRound.size>=maxBalls) return;
-    const pool=[];
-    for (let i=1;i<=75;i++) if (!calledThisRound.has(i)&&!calledPrev.has(i)) pool.push(i);
-    if (!pool.length) return;
-    setCalledThisRound(p=>new Set([...p,pool[Math.floor(Math.random()*pool.length)]]));
-  }
-  function newRound(){
-    setCalledPrev(p=>new Set([...p,...calledThisRound]));
-    setCalledThisRound(new Set());
-    setRoundsDone(r=>r+1); setRoundNum(r=>r+1);
-  }
-  function resetAll(){ setCalledThisRound(new Set());setCalledPrev(new Set());setRoundsDone(0);setRoundNum(1); }
-  function saveLabel(){ setLabel(labelDraft);setShowModal(false); }
 
-  function createCard(){
-    const name = newCardName.trim() || `Card ${bingoCards.length+1}`;
-    setBingoCards(p=>[...p,{name,grid:emptyGrid()}]);
+  function drawRandom() {
+    if (calledThisRound.size >= maxBalls) return;
+    const pool = [];
+    for (let i=1; i<=75; i++) if (!calledThisRound.has(i)) pool.push(i);
+    if (!pool.length) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    setCalledThisRound(p => new Set([...p, pick]));
+    setFreqMap(f => ({ ...f, [pick]: (f[pick]||0) + 1 }));
+  }
+
+  // New Round: save current calls to prevNumbers for purple styling, then reset current round
+  function newRound() {
+    setPrevNumbers(new Set(calledThisRound));
+    setCalledThisRound(new Set());
+    setRoundsDone(r => r + 1);
+    setRoundNum(r => r + 1);
+    // freqMap keeps accumulating — do NOT reset it here
+  }
+
+  function resetAll() {
+    setCalledThisRound(new Set());
+    setPrevNumbers(new Set());
+    setFreqMap({});
+    setRoundsDone(0);
+    setRoundNum(1);
+  }
+
+  function saveLabel() { setLabel(labelDraft); setShowModal(false); }
+
+  function createCard() {
+    const name = newCardName.trim() || `Card ${bingoCards.length + 1}`;
+    setBingoCards(p => [...p, { name, grid: emptyGrid() }]);
     setNewCardName("");
     setShowNewRow(false);
   }
-  function updateCard(idx,grid){ setBingoCards(p=>p.map((c,i)=>i===idx?{...c,grid}:c)); }
-  function deleteCard(idx)     { setBingoCards(p=>p.filter((_,i)=>i!==idx)); }
+  function updateCard(idx, grid) { setBingoCards(p => p.map((c,i) => i===idx ? {...c, grid} : c)); }
+  function deleteCard(idx)       { setBingoCards(p => p.filter((_,i) => i!==idx)); }
 
-  const bingoCnt = bingoCards.filter(c=>checkBingo(c.grid,allCalled).length>0).length;
+  const bingoCnt = bingoCards.filter(c => checkBingo(c.grid, calledNumbers).length > 0).length;
 
   return (
     <>
@@ -561,7 +659,7 @@ export default function Generate({ onBack }) {
             <div className="logo-circle">🍀</div>
             <span className="logo-title">BINGO FORTUNE</span>
           </div>
-          {bingoCnt>0 && (
+          {bingoCnt > 0 && (
             <span className="bingo-count-badge">
               🎉 {bingoCnt} BINGO{bingoCnt>1?"S":""}!
             </span>
@@ -610,9 +708,12 @@ export default function Generate({ onBack }) {
                 </div>
               ))}
             </div>
+            {limitReached && (
+              <div className="cn-limit-banner">🔒 Round limit reached ({maxBalls} balls) — start a new round to continue drawing</div>
+            )}
             <div className="cn-ball-grid">
               {Array.from({length:75},(_,i)=>i+1).map(n=>(
-                <div key={n} className={`cn-ball${getBallState(n)?" "+getBallState(n):""}`}
+                <div key={n} className={`cn-ball${getBallState(n)?" "+getBallState(n):""}${!calledThisRound.has(n) && limitReached ? " locked" : ""}`}
                   onClick={()=>toggleBall(n)} title={`${getBingoLetter(n)}-${n}`}>{n}</div>
               ))}
             </div>
@@ -635,43 +736,33 @@ export default function Generate({ onBack }) {
             ))}
           </div>
 
-          {/* ══ BINGO CARDS SECTION ══ */}
+
+          {/* FREQUENCY TRACKER */}
+          {Object.keys(freqMap).length > 0 && <FrequencyTracker freqMap={freqMap} />}
+
+          {/* BINGO CARDS SECTION */}
           <div className="cards-section">
             <div className="cards-section-header">
               <span className="cards-section-title">
                 🃏 Bingo Cards {bingoCards.length>0 && `(${bingoCards.length})`}
               </span>
-
               <div className="cards-section-right">
-                {/* Cards per row selector */}
                 <span className="cards-per-row-label">Per row:</span>
                 <div className="cards-per-row-btns">
                   {[1,2,3,4,5].map(n=>(
-                    <button
-                      key={n}
-                      className={`cpr-btn${cardsPerRow===n?" active":""}`}
-                      onClick={()=>setCardsPerRow(n)}
-                      title={`${n} card${n>1?"s":""} per row`}
-                    >
-                      {n}
-                    </button>
+                    <button key={n} className={`cpr-btn${cardsPerRow===n?" active":""}`}
+                      onClick={()=>setCardsPerRow(n)} title={`${n} card${n>1?"s":""} per row`}>{n}</button>
                   ))}
                 </div>
-
-                <button
-                  className="cards-add-btn"
-                  onClick={()=>{ setShowNewRow(r=>!r); setNewCardName(""); }}
-                >
+                <button className="cards-add-btn" onClick={()=>{ setShowNewRow(r=>!r); setNewCardName(""); }}>
                   {showNewRow ? "✕ Cancel" : "+ Add card"}
                 </button>
               </div>
             </div>
 
-            {/* Inline new-card row */}
             {showNewRow && (
               <div className="cards-new-row">
-                <input
-                  className="cards-new-input"
+                <input className="cards-new-input"
                   placeholder="Player name (e.g. Maria, Table 3)"
                   value={newCardName}
                   onChange={e=>setNewCardName(e.target.value)}
@@ -688,15 +779,12 @@ export default function Generate({ onBack }) {
               </div>
             )}
 
-            {/* ── GRID: cardsPerRow columns ── */}
             {bingoCards.length > 0 && (
               <div className={`cards-grid cpr-${cardsPerRow}`}>
                 {bingoCards.map((card,i)=>(
                   <InlineBingoCard
-                    key={i}
-                    idx={i}
-                    card={card}
-                    allCalled={allCalled}
+                    key={i} idx={i} card={card}
+                    allCalled={calledNumbers}
                     onUpdate={updateCard}
                     onDelete={deleteCard}
                     cardsPerRow={cardsPerRow}
