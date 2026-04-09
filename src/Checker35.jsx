@@ -45,13 +45,18 @@ export default function BingoBallRecorder() {
   const [rounds, setRounds] = useState([[]]);
   const [currentRound, setCurrentRound] = useState(0);
   const [cards, setCards] = useState([{ name: "Card 1", grid: emptyCard(), mode: "edit" }]);
-  const [editingCard, setEditingCard] = useState(null); // which card is open in modal
+  const [editingCard, setEditingCard] = useState(null);
   const [errors, setErrors] = useState({});
   const [manualInput, setManualInput] = useState("");
   const [manualError, setManualError] = useState("");
 
   const calledNumbers = rounds[currentRound];
   const calledSet = new Set(calledNumbers);
+
+  // How many rounds each number has been called across ALL rounds
+  function getCallCount(n) {
+    return rounds.filter((r) => r.includes(n)).length;
+  }
 
   // ── Recorder ──
   function toggle(n) {
@@ -73,7 +78,7 @@ export default function BingoBallRecorder() {
   function handleManualCall() {
     const n = parseInt(manualInput, 10);
     if (isNaN(n) || n < 1 || n > 75) { setManualError("Enter a number between 1 and 75"); return; }
-    if (calledSet.has(n)) { setManualError(`${n} is already called`); return; }
+    if (calledSet.has(n)) { setManualError(`${n} is already called this round`); return; }
     setManualError(""); setManualInput("");
     setRounds((prev) => prev.map((r, i) => i === currentRound ? [...r, n] : r));
   }
@@ -133,8 +138,6 @@ export default function BingoBallRecorder() {
   function hasErrors(cardIdx) { return Object.entries(errors).some(([k, v]) => k.startsWith(`${cardIdx}-`) && v !== ""); }
   function canSave(cardIdx) { return isCardFilled(cards[cardIdx].grid) && !hasErrors(cardIdx); }
 
-  const editCard_ = editingCard !== null ? cards[editingCard] : null;
-
   return (
     <>
       <style>{`
@@ -163,15 +166,39 @@ export default function BingoBallRecorder() {
         .btn-blue   { background: #1565C0; color: #fff; }
         .btn-gray   { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.45); cursor: not-allowed; }
         .btn-gray:hover { filter: none; transform: none; }
+
+        /* Ball display board */
         .display-board { display: grid; grid-template-columns: repeat(15,1fr); gap: 5px; margin-bottom: 14px; }
         .display-ball { aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; user-select: none; }
         .display-ball span { color: #fff; font-weight: 700; font-size: clamp(9px,1.5vw,15px); }
         .col-row { display: grid; grid-template-columns: repeat(5,1fr); text-align: center; margin-top: 6px; }
         .col-label { color: rgba(255,255,255,0.85); font-size: clamp(10px,2vw,13px); }
         .col-count { color: #fff; font-size: clamp(16px,3vw,22px); font-weight: 700; }
-        .numpad { display: grid; grid-template-columns: repeat(15,1fr); gap: 5px; }
-        .num-ball { aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: clamp(9px,1.5vw,13px); user-select: none; transition: all 0.15s; cursor: pointer; font-weight: 700; }
-        .num-ball:hover { filter: brightness(1.15); transform: scale(1.07); }
+
+        /* Numpad — shows call count badges */
+        .numpad { display: grid; grid-template-columns: repeat(10,1fr); gap: 6px; }
+        .num-ball-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .num-ball {
+          width: 100%; aspect-ratio: 1; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: clamp(10px,1.8vw,14px); user-select: none;
+          transition: all 0.15s; cursor: pointer; font-weight: 700;
+          position: relative;
+        }
+        .num-ball:hover { filter: brightness(1.12); transform: scale(1.06); }
+
+        /* Count badge — shows how many rounds this number was called */
+        .call-count-badge {
+          position: absolute;
+          top: -5px; right: -5px;
+          min-width: 18px; height: 18px;
+          background: #FFD700; color: #7B1212;
+          border-radius: 10px; font-size: 10px; font-weight: 900;
+          display: flex; align-items: center; justify-content: center;
+          padding: 0 4px; line-height: 1;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          z-index: 2;
+        }
 
         /* Manual Caller */
         .manual-caller { background: rgba(0,0,0,0.25); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
@@ -194,7 +221,7 @@ export default function BingoBallRecorder() {
         .chip-remove:hover { color: #fff; }
         .no-calls-hint { color: rgba(255,255,255,0.35); font-size: clamp(11px,2vw,12px); font-style: italic; }
 
-        /* Cards Grid — mini cards only, no expand */
+        /* Cards Grid */
         .cards-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; }
         .card-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 10px 8px; display: flex; flex-direction: column; gap: 8px; border: 2px solid transparent; transition: border 0.2s, box-shadow 0.2s; position: relative; }
         .card-item.bingo-card-item { border-color: #4ade80; box-shadow: 0 0 14px rgba(74,222,128,0.3); }
@@ -207,42 +234,26 @@ export default function BingoBallRecorder() {
         .card-actions { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
         .card-action-btn { flex: 1; border: none; border-radius: 14px; padding: 5px 8px; font-size: clamp(10px,1.5vw,12px); font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
         .card-action-btn:hover { filter: brightness(1.1); }
-        .cab-edit   { background: #E67E22; color: #fff; }
-        .cab-save   { background: #FFD700; color: #7B1212; }
-        .cab-play   { background: #1a7a3a; color: #fff; }
-        .cab-clear  { background: rgba(192,57,43,0.7); color: #fff; }
+        .cab-edit  { background: #E67E22; color: #fff; }
+        .cab-save  { background: #FFD700; color: #7B1212; }
+        .cab-clear { background: rgba(192,57,43,0.7); color: #fff; }
         .cab-remove { background: rgba(100,100,100,0.4); color: #fff; }
-        .cab-gray   { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.35); cursor: not-allowed; }
+        .cab-gray  { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.35); cursor: not-allowed; }
 
-        /* Mini preview grid */
         .mini-card-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 2px; border-radius: 6px; overflow: hidden; border: 1.5px solid rgba(255,255,255,0.2); }
         .mini-header { text-align: center; font-size: clamp(7px,1.2vw,11px); font-weight: 900; color: #fff; padding: 3px 1px; }
         .mini-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(6px,1vw,10px); font-weight: 700; color: #fff; border: 0.5px solid rgba(255,255,255,0.1); transition: background 0.15s; }
         .mini-cell.mini-called { background: rgba(255,215,0,0.45); color: #FFD700; }
         .mini-cell.mini-free { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.5); font-size: clamp(5px,0.9vw,8px); }
         .mini-cell.mini-empty { background: rgba(0,0,0,0.2); color: rgba(255,255,255,0.2); }
-
-        /* BINGO label on card */
         .bingo-label { background: #4ade80; color: #064e23; font-size: clamp(10px,1.8vw,13px); font-weight: 800; text-align: center; padding: 4px; border-radius: 8px; letter-spacing: 1px; }
 
-        /* Add card tile */
         .add-card-tile { background: rgba(0,0,0,0.1); border-radius: 12px; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80px; cursor: pointer; border: 2px dashed rgba(255,255,255,0.3); transition: border 0.2s; }
         .add-card-tile:hover { border-color: rgba(255,215,0,0.5); }
 
-        /* Edit overlay modal */
-        .modal-overlay {
-          position: fixed; inset: 0;
-          background: rgba(0,0,0,0.7);
-          display: flex; align-items: center; justify-content: center;
-          z-index: 1000; padding: 16px;
-        }
-        .modal-box {
-          background: linear-gradient(135deg, #7B1212, #C0392B);
-          border-radius: 18px; padding: 20px 18px;
-          width: 100%; max-width: 480px;
-          border: 2px solid #FFD700;
-          max-height: 90vh; overflow-y: auto;
-        }
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+        .modal-box { background: linear-gradient(135deg, #7B1212, #C0392B); border-radius: 18px; padding: 20px 18px; width: 100%; max-width: 480px; border: 2px solid #FFD700; max-height: 90vh; overflow-y: auto; }
         .modal-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
         .modal-name-input { flex: 1; min-width: 120px; padding: 7px 14px; border-radius: 20px; border: none; font-size: clamp(13px,3vw,15px); font-weight: 600; background: rgba(255,255,255,0.9); color: #333; }
         .modal-close { background: rgba(255,255,255,0.15); border: none; border-radius: 50%; width: 32px; height: 32px; color: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -260,24 +271,29 @@ export default function BingoBallRecorder() {
         .cell-error { font-size: clamp(7px,1.2vw,9px); color: #ff5252; margin-top: 1px; }
         .range-hint { font-size: clamp(7px,1.2vw,9px); color: rgba(255,255,255,0.35); margin-top: 1px; }
 
+        /* Numpad legend */
+        .numpad-legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+        .numpad-legend-item { display: flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.75); font-size: clamp(10px,1.8vw,12px); }
+        .legend-swatch { width: 14px; height: 14px; border-radius: 4px; }
+
         @media (max-width: 900px) { .cards-grid { grid-template-columns: repeat(3,1fr); } }
         @media (max-width: 768px) {
           .bingo-page { padding: 12px 8px; gap: 12px; }
           .bingo-card, .numpad-card, .card-section { padding: 14px 10px; border-radius: 12px; }
           .display-board { gap: 3px; }
-          .numpad { grid-template-columns: repeat(10,1fr); gap: 4px; }
+          .numpad { grid-template-columns: repeat(8,1fr); gap: 4px; }
           .cards-grid { grid-template-columns: repeat(3,1fr); gap: 10px; }
         }
         @media (max-width: 540px) {
           .cards-grid { grid-template-columns: repeat(2,1fr); }
           .display-board { grid-template-columns: repeat(10,1fr); gap: 3px; }
-          .numpad { grid-template-columns: repeat(8,1fr); gap: 3px; }
+          .numpad { grid-template-columns: repeat(6,1fr); gap: 3px; }
         }
       `}</style>
 
       <div className="bingo-page">
 
-        {/* ── 1: Ball Display Board ── */}
+        {/* ── 1: Ball Display Board (SINGLE — no duplicate) ── */}
         <div className="bingo-card">
           <h1 className="bingo-title">🎯 Ball Recording — Round {currentRound + 1}</h1>
           <div className="bingo-controls">
@@ -310,16 +326,50 @@ export default function BingoBallRecorder() {
           </div>
         </div>
 
-        {/* ── 2: Number Pad ── */}
+        {/* ── 2: Number Pad — with round call count badges ── */}
         <div className="numpad-card">
+          {/* Legend */}
+          <div className="numpad-legend">
+            <div className="numpad-legend-item">
+              <div className="legend-swatch" style={{ background: "#ADD8E6", border: "2px solid #90CAE8" }} />
+              <span>Not called</span>
+            </div>
+            <div className="numpad-legend-item">
+              <div className="legend-swatch" style={{ background: "#B0BEC5", opacity: 0.5 }} />
+              <span>Called this round</span>
+            </div>
+            <div className="numpad-legend-item">
+              <div className="legend-swatch" style={{ background: "#ADD8E6", border: "2px solid #90CAE8", position: "relative", display: "inline-block" }} />
+              <div style={{ background: "#FFD700", color: "#7B1212", borderRadius: 8, fontSize: 9, fontWeight: 900, padding: "1px 4px" }}>2x</div>
+              <span>Called in multiple rounds</span>
+            </div>
+          </div>
+
           <div className="numpad">
             {Array.from({ length: 75 }, (_, i) => i + 1).map((n) => {
-              const isCalled = calledSet.has(n);
+              const isCalledThisRound = calledSet.has(n);
+              const totalCount = getCallCount(n); // how many rounds called
+
               return (
-                <div key={n} onClick={() => toggle(n)} className="num-ball"
-                  style={{ background: isCalled ? "#B0BEC5" : "#ADD8E6", border: isCalled ? "3px solid #78909C" : "2px solid #90CAE8", color: "#000", opacity: isCalled ? 0.5 : 1 }}
-                >
-                  {n}
+                <div key={n} className="num-ball-wrap">
+                  <div
+                    onClick={() => toggle(n)}
+                    className="num-ball"
+                    style={{
+                      background: isCalledThisRound ? "#B0BEC5" : "#ADD8E6",
+                      border: isCalledThisRound ? "3px solid #78909C" : "2px solid #90CAE8",
+                      color: "#000",
+                      opacity: isCalledThisRound ? 0.55 : 1,
+                    }}
+                  >
+                    {n}
+                    {/* Show count badge if called in ANY round */}
+                    {totalCount > 0 && (
+                      <div className="call-count-badge">
+                        {totalCount}x
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -375,22 +425,19 @@ export default function BingoBallRecorder() {
             )}
           </div>
 
-          {/* Cards Grid — mini cards, no expand */}
+          {/* Cards Grid */}
           <div className="cards-grid">
             {cards.map((card, idx) => {
               const bingo = card.mode === "play" && checkBingo(card.grid, calledSet);
               const saveable = canSave(idx);
               return (
                 <div key={idx} className={`card-item ${bingo ? "bingo-card-item" : ""}`}>
-                  {/* Header: name + badge */}
                   <div className="card-item-header">
                     <span className="card-item-name" title={card.name}>{card.name}</span>
                     <span className={`card-item-badge ${bingo ? "badge-bingo" : card.mode === "play" ? "badge-play" : "badge-edit"}`}>
                       {bingo ? "BINGO!" : card.mode === "play" ? "▶ Play" : "✏ Edit"}
                     </span>
                   </div>
-
-                  {/* Mini card preview */}
                   <div className="mini-card-grid">
                     {COLUMNS.map(({ label }) => (
                       <div key={label} className="mini-header" style={{ background: HEADER_COLORS[label] }}>{label}</div>
@@ -411,20 +458,12 @@ export default function BingoBallRecorder() {
                       })
                     )}
                   </div>
-
-                  {/* BINGO label */}
                   {bingo && <div className="bingo-label">🎉 BINGO!</div>}
-
-                  {/* Action buttons */}
                   <div className="card-actions">
-                    {card.mode === "edit" ? (
-                      <>
-                        <button className="card-action-btn cab-edit" onClick={() => setEditingCard(idx)}>✏️ Edit</button>
-                        <button className={`card-action-btn ${saveable ? "cab-save" : "cab-gray"}`}
-                          onClick={() => saveable && saveCard(idx)}>💾 Save</button>
-                      </>
-                    ) : (
-                      <button className="card-action-btn cab-edit" onClick={() => editCard(idx)}>✏️ Edit</button>
+                    <button className="card-action-btn cab-edit" onClick={() => { editCard(idx); setEditingCard(idx); }}>✏️ Edit</button>
+                    {card.mode === "edit" && (
+                      <button className={`card-action-btn ${saveable ? "cab-save" : "cab-gray"}`}
+                        onClick={() => saveable && saveCard(idx)}>💾 Save</button>
                     )}
                     <button className="card-action-btn cab-clear" onClick={() => clearCard(idx)}>🗑</button>
                     {cards.length > 1 && (
@@ -434,8 +473,6 @@ export default function BingoBallRecorder() {
                 </div>
               );
             })}
-
-            {/* Add Card tile */}
             <div className="add-card-tile" onClick={addCard}>
               <span style={{ fontSize: 28, color: "rgba(255,255,255,0.5)", lineHeight: 1 }}>+</span>
               <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4 }}>Add Card</span>
@@ -444,7 +481,7 @@ export default function BingoBallRecorder() {
         </div>
       </div>
 
-      {/* ── Edit Modal ── */}
+      {/* Edit Modal */}
       {editingCard !== null && cards[editingCard] && (() => {
         const card = cards[editingCard];
         const saveable = canSave(editingCard);
@@ -464,11 +501,7 @@ export default function BingoBallRecorder() {
                 </button>
                 <button className="modal-close" onClick={() => setEditingCard(null)}>✕</button>
               </div>
-
-              {!saveable && (
-                <p className="save-hint">⚠️ Fill all 24 cells with valid numbers to save</p>
-              )}
-
+              {!saveable && <p className="save-hint">⚠️ Fill all 24 cells with valid numbers to save</p>}
               <div className="full-card-grid">
                 {COLUMNS.map(({ label }) => (
                   <div key={label} className="card-header-cell" style={{ background: HEADER_COLORS[label] }}>{label}</div>
@@ -479,9 +512,9 @@ export default function BingoBallRecorder() {
                     const isFree = col === 2 && row === 2;
                     const key = `${editingCard}-${col}-${row}`;
                     const hasError = errors[key];
-                    const cellBg = isFree ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)";
                     return (
-                      <div key={key} className="card-cell" style={{ background: cellBg }}>
+                      <div key={key} className="card-cell"
+                        style={{ background: isFree ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)" }}>
                         {isFree ? (
                           <span className="free-label">FREE</span>
                         ) : (
